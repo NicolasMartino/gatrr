@@ -15,6 +15,9 @@
 # - PULUMI_ORG: Your Pulumi organization name (e.g., NicolasMartino-org)
 # - PULUMI_USER: Your Pulumi username (e.g., NicolasMartino) - needed for OIDC on free tier
 #
+# Required Secrets (Settings > Secrets and variables > Actions > Secrets):
+# - PULUMI_CONFIG_PASSPHRASE: Passphrase for Pulumi config encryption (can be empty if using ESC)
+#
 # See docs/deploy.md for full setup instructions.
 
 name: CI/CD
@@ -34,6 +37,7 @@ on:
 env:
   PULUMI_DIR: infra/pulumi
   NODE_VERSION: '20.17'
+  PULUMI_CONFIG_PASSPHRASE: ${{ secrets.PULUMI_CONFIG_PASSPHRASE }}
 
 jobs:
   # ===========================================================================
