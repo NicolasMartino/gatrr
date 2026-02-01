@@ -1,0 +1,17 @@
+{
+  "name": "gatrr-e2e",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "test": "npx playwright test",
+    "test:headed": "npx playwright test --headed",
+    "e2e": "tsx src/runner.ts"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.41.0",
+    "@pulumi/pulumi": "^3.100.0",
+    "@types/node": "^20.11.0",
+    "tsx": "^4.7.0",
+    "typescript": "^5.3.0"
+  }
+}

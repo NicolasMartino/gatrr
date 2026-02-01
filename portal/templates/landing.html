@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Service Portal</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 60px 40px;
+            max-width: 500px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            text-align: center;
+        }
+
+        .logo {
+            width: 120px;
+            height: 120px;
+            margin: 0 auto 30px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 30px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 60px;
+        }
+
+        .logo img {
+            max-width: 100%;
+            max-height: 100%;
+            border-radius: 20px;
+        }
+
+        h1 {
+            font-size: 32px;
+            color: #333;
+            margin-bottom: 15px;
+            font-weight: 700;
+        }
+
+        p {
+            color: #666;
+            font-size: 16px;
+            line-height: 1.6;
+            margin-bottom: 30px;
+        }
+
+        .btn {
+            display: inline-block;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px 50px;
+            border-radius: 50px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 16px;
+            transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 15px 30px rgba(102, 126, 234, 0.5);
+        }
+
+        .features {
+            margin-top: 40px;
+            padding-top: 40px;
+            border-top: 1px solid #eee;
+            text-align: left;
+        }
+
+        .feature {
+            display: flex;
+            align-items: center;
+            margin-bottom: 20px;
+            color: #555;
+        }
+
+        .feature-icon {
+            font-size: 24px;
+            margin-right: 15px;
+            min-width: 30px;
+        }
+
+        .feature-text {
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">
+            {% match logo_url %}
+            {% when Some with (url) %}
+            <img src="{{ url }}" alt="Logo">
+            {% when None %}
+            🔐
+            {% endmatch %}
+        </div>
+
+        <h1>Service Portal</h1>
+        <p>Securely access your protected services with single sign-on authentication.</p>
+
+        <a href="/auth/login" class="btn">Sign In</a>
+
+        <div class="features">
+            <div class="feature">
+                <span class="feature-icon">🔒</span>
+                <span class="feature-text">Secure OAuth2/OIDC authentication</span>
+            </div>
+            <div class="feature">
+                <span class="feature-icon">🎯</span>
+                <span class="feature-text">Single sign-on across all services</span>
+            </div>
+            <div class="feature">
+                <span class="feature-icon">⚡</span>
+                <span class="feature-text">Fast and secure access</span>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

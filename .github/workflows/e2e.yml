@@ -1,0 +1,147 @@
+name: E2E Tests
+
+on:
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+    inputs:
+      debug:
+        description: 'Enable debug mode'
+        required: false
+        default: 'false'
+
+env:
+  # Pulumi configuration
+  PULUMI_CONFIG_PASSPHRASE: ${{ secrets.PULUMI_CONFIG_PASSPHRASE || 'e2e-test-passphrase' }}
+
+  # E2E test credentials (defaults for CI)
+  KEYCLOAK_ADMIN_USERNAME: admin
+  KEYCLOAK_ADMIN_PASSWORD: ${{ secrets.KEYCLOAK_ADMIN_PASSWORD || 'admin' }}
+  E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD || 'e2e-admin-pass' }}
+  E2E_DEV_PASSWORD: ${{ secrets.E2E_DEV_PASSWORD || 'e2e-dev-pass' }}
+
+jobs:
+  e2e:
+    name: E2E Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.17'
+          cache: 'npm'
+          cache-dependency-path: e2e/package-lock.json
+
+      - name: Install Pulumi CLI
+        uses: pulumi/actions@v5
+        with:
+          command: version
+
+      - name: Set up Rust (for portal build)
+        uses: dtolnay/rust-action@stable
+        with:
+          toolchain: stable
+
+      - name: Cache Rust dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            portal/target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Install E2E dependencies
+        working-directory: e2e
+        run: npm ci
+
+      - name: Install Playwright browsers
+        working-directory: e2e
+        run: npx playwright install --with-deps chromium
+
+      - name: Install Pulumi dependencies
+        working-directory: infra/pulumi
+        run: npm ci
+
+      - name: Add localhost entries to /etc/hosts
+        run: |
+          sudo tee -a /etc/hosts <<EOF
+          127.0.0.1 portal.localhost
+          127.0.0.1 keycloak.localhost
+          127.0.0.1 demo.localhost
+          127.0.0.1 docs.localhost
+          127.0.0.1 logs.localhost
+          EOF
+
+      - name: Run E2E tests
+        working-directory: e2e
+        run: npm run e2e
+        env:
+          CI: true
+
+      - name: Upload Playwright report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report
+          path: e2e/playwright-report/
+          retention-days: 7
+
+      - name: Upload test screenshots
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: test-screenshots
+          path: e2e/test-results/
+          retention-days: 7
+
+      - name: Debug - Show Docker containers
+        if: failure() && github.event.inputs.debug == 'true'
+        run: |
+          echo "=== Docker containers ==="
+          docker ps -a
+          echo ""
+          echo "=== Docker logs ==="
+          docker ps -aq | xargs -I {} docker logs {} 2>&1 | tail -100
+
+  # Cleanup job runs even if e2e fails
+  cleanup:
+    name: Cleanup
+    runs-on: ubuntu-latest
+    needs: e2e
+    if: always()
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.17'
+
+      - name: Install Pulumi CLI
+        uses: pulumi/actions@v5
+        with:
+          command: version
+
+      - name: Cleanup any orphaned stacks
+        working-directory: infra/pulumi
+        run: |
+          npm ci
+          # List and remove any e2e-* stacks that might be orphaned
+          pulumi stack ls --json 2>/dev/null | jq -r '.[] | select(.name | startswith("e2e-")) | .name' | while read stack; do
+            echo "Cleaning up orphaned stack: $stack"
+            pulumi stack select "$stack" --non-interactive || continue
+            pulumi destroy -y --non-interactive || true
+            pulumi stack rm "$stack" -y --non-interactive || true
+          done
+        env:
+          PULUMI_CONFIG_PASSPHRASE: ${{ secrets.PULUMI_CONFIG_PASSPHRASE || 'e2e-test-passphrase' }}
+        continue-on-error: true

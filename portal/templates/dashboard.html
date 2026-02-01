@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Service Portal</title>
+    <link rel="stylesheet" href="/static/css/styles.css">
+    <script src="/static/vendor/htmx.min.js"></script>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <!-- Header -->
+    <header class="bg-white shadow">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+            <div class="flex justify-between items-center">
+                <h1 class="text-3xl font-bold text-gray-900">Available Services</h1>
+                <div class="flex items-center gap-4">
+                    <div class="text-sm text-gray-600">
+                        <span class="mr-2">👤 {{ username }}</span>
+                        {% match email %}
+                        {% when Some with (email_val) %}
+                        <span class="text-gray-400">{{ email_val }}</span>
+                        {% when None %}
+                        {% endmatch %}
+                    </div>
+                    <form action="/auth/logout" method="POST" class="inline">
+                        <button type="submit" class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors cursor-pointer">
+                            Logout
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        {% if services.len() == 0 %}
+        <div class="text-center py-12">
+            <div class="text-6xl mb-4">📦</div>
+            <h2 class="text-2xl font-semibold text-gray-700 mb-2">No Services Available</h2>
+            <p class="text-gray-500">No services are available for your account.</p>
+        </div>
+        {% else %}
+        <!-- Search Bar -->
+        <div class="mb-8">
+            <div class="relative">
+                <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                    <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                    </svg>
+                </div>
+                <input type="text"
+                       id="service-search"
+                       placeholder="Search services... (/ or ⌘K)"
+                       class="block w-full pl-12 pr-10 py-3 border border-gray-300 rounded-lg leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-base"
+                       autocomplete="off">
+                <button type="button"
+                        id="search-clear"
+                        class="absolute inset-y-0 right-0 pr-4 flex items-center hidden"
+                        aria-label="Clear search">
+                    <svg class="h-5 w-5 text-gray-400 hover:text-gray-600 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+        </div>
+
+        <!-- No Results Message (hidden by default) -->
+        <div id="no-results" class="hidden text-center py-12">
+            <div class="text-6xl mb-4">🔍</div>
+            <h2 class="text-2xl font-semibold text-gray-700 mb-2">No Services Found</h2>
+            <p class="text-gray-500">No services match your search. Try a different query.</p>
+        </div>
+
+        <!-- Services Grid -->
+        <div id="services-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {% for service in services %}
+            <a href="{{ service.url }}"
+               class="service-card block bg-white rounded-lg shadow-md hover:shadow-xl transition-shadow duration-300 p-6 border border-gray-200 hover:border-purple-500"
+               data-name="{{ service.name|lower }}"
+               data-description="{% match service.description %}{% when Some with (desc) %}{{ desc|lower }}{% when None %}{% endmatch %}">
+                <div class="flex items-start">
+                    <div class="text-5xl mr-4">{{ service.icon }}</div>
+                    <div class="flex-1">
+                        <h3 class="text-xl font-semibold text-gray-900 mb-2">{{ service.name }}</h3>
+                        {% match service.description %}
+                        {% when Some with (desc) %}
+                        <p class="text-gray-600 text-sm">{{ desc }}</p>
+                        {% when None %}
+                        {% endmatch %}
+                    </div>
+                </div>
+                <div class="mt-4 text-sm text-purple-600 font-medium flex items-center">
+                    <span>Access Service</span>
+                    <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                    </svg>
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </main>
+
+    <!-- Search Script -->
+    <script>
+    (function() {
+        const searchInput = document.getElementById('service-search');
+        const searchClear = document.getElementById('search-clear');
+        const servicesGrid = document.getElementById('services-grid');
+        const noResults = document.getElementById('no-results');
+        
+        if (!searchInput || !servicesGrid) return;
+        
+        const serviceCards = servicesGrid.querySelectorAll('.service-card');
+        const DEBOUNCE_MS = 150;
+        const HISTORY_KEY = 'portal_search_history';
+        const MAX_HISTORY = 5;
+        
+        let debounceTimer = null;
+        
+        // --- Clear Button Visibility ---
+        function updateClearButton() {
+            if (searchClear) {
+                searchClear.classList.toggle('hidden', searchInput.value === '');
+            }
+        }
+        
+        function clearSearch() {
+            searchInput.value = '';
+            filterServices('');
+            updateClearButton();
+            searchInput.focus();
+        }
+        
+        // --- Search History ---
+        function getSearchHistory() {
+            try {
+                return JSON.parse(localStorage.getItem(HISTORY_KEY)) || [];
+            } catch (e) {
+                return [];
+            }
+        }
+        
+        function saveToHistory(query) {
+            const trimmed = query.trim();
+            if (!trimmed || trimmed.length < 2) return;
+            
+            let history = getSearchHistory();
+            history = history.filter(function(item) { return item !== trimmed; });
+            history.unshift(trimmed);
+            history = history.slice(0, MAX_HISTORY);
+            
+            try {
+                localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+            } catch (e) {
+                // localStorage not available
+            }
+        }
+        
+        // --- Filtering ---
+        function filterServices(query) {
+            const normalizedQuery = query.toLowerCase().trim();
+            let visibleCount = 0;
+            
+            serviceCards.forEach(function(card) {
+                const name = card.dataset.name || '';
+                const description = card.dataset.description || '';
+                const matches = normalizedQuery === '' || 
+                               name.includes(normalizedQuery) || 
+                               description.includes(normalizedQuery);
+                
+                card.style.display = matches ? '' : 'none';
+                if (matches) visibleCount++;
+            });
+            
+            // Show/hide no results message
+            if (noResults) {
+                noResults.classList.toggle('hidden', visibleCount > 0 || normalizedQuery === '');
+            }
+            
+            // Show/hide grid when no results
+            servicesGrid.classList.toggle('hidden', visibleCount === 0 && normalizedQuery !== '');
+        }
+        
+        function debouncedFilter(query) {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(function() {
+                filterServices(query);
+            }, DEBOUNCE_MS);
+        }
+        
+        // --- Event Listeners ---
+        searchInput.addEventListener('input', function(e) {
+            debouncedFilter(e.target.value);
+            updateClearButton();
+        });
+        
+        if (searchClear) {
+            searchClear.addEventListener('click', clearSearch);
+        }
+        
+        // Save to history on Enter or when leaving the field with a value
+        searchInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                saveToHistory(searchInput.value);
+            }
+            if (e.key === 'Escape') {
+                clearSearch();
+                searchInput.blur();
+            }
+        });
+        
+        searchInput.addEventListener('blur', function() {
+            saveToHistory(searchInput.value);
+        });
+        
+        // --- Keyboard Shortcuts ---
+        document.addEventListener('keydown', function(e) {
+            // Focus search: Cmd/Ctrl + K or just /
+            const isCmdK = (e.metaKey || e.ctrlKey) && e.key === 'k';
+            const isSlash = e.key === '/' && !isInputFocused();
+            
+            if (isCmdK || isSlash) {
+                e.preventDefault();
+                searchInput.focus();
+                searchInput.select();
+            }
+        });
+        
+        function isInputFocused() {
+            const active = document.activeElement;
+            return active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable);
+        }
+    })();
+    </script>
+
+    <!-- Footer -->
+    <footer class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 text-center text-gray-500 text-sm">
+        <p>Secured by OAuth2/OIDC authentication</p>
+    </footer>
+</body>
+</html>

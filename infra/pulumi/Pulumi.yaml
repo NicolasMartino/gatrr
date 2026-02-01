@@ -1,0 +1,6 @@
+name: gatrr
+runtime:
+  name: nodejs
+  options:
+    typescript: true
+description: Portal infrastructure with Traefik, Keycloak, and OAuth2-Proxy

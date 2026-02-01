@@ -1,0 +1,182 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gatrr.dev/schema/portal-descriptor.schema.json",
+  "title": "PortalDescriptor",
+  "description": "Portal Descriptor v1 - Static deployment descriptor for service discovery",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "deploymentId", "environment", "baseDomain", "portal", "keycloak", "services"],
+  "properties": {
+    "version": {
+      "type": "string",
+      "const": "1",
+      "description": "Schema version (currently only '1' is supported)"
+    },
+    "deploymentId": {
+      "$ref": "#/$defs/slug",
+      "description": "Deployment identifier (e.g., 'prod', 'staging', 'local')"
+    },
+    "environment": {
+      "$ref": "#/$defs/slug",
+      "description": "Environment type (e.g., 'prod', 'dev')"
+    },
+    "baseDomain": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[^\\s]+$",
+      "description": "Base domain (e.g., 'localhost', 'example.com')"
+    },
+    "portal": {
+      "$ref": "#/$defs/portalConfig"
+    },
+    "keycloak": {
+      "$ref": "#/$defs/keycloakConfig"
+    },
+    "services": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/service"
+      },
+      "description": "Services to display (order is display order)"
+    }
+  },
+  "$defs": {
+    "slug": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*[a-z0-9]$|^[a-z]$",
+      "minLength": 1,
+      "description": "Lowercase alphanumeric with hyphens, cannot start or end with hyphen"
+    },
+    "httpUrl": {
+      "type": "string",
+      "pattern": "^https?://[^\\s]+$",
+      "description": "Absolute URL with http:// or https:// scheme"
+    },
+    "portalConfig": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["publicUrl"],
+      "properties": {
+        "publicUrl": {
+          "$ref": "#/$defs/httpUrl",
+          "description": "Browser-visible URL for the portal"
+        }
+      }
+    },
+    "keycloakConfig": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["publicUrl", "issuerUrl", "realm"],
+      "properties": {
+        "publicUrl": {
+          "$ref": "#/$defs/httpUrl",
+          "description": "Browser-visible URL for Keycloak"
+        },
+        "issuerUrl": {
+          "$ref": "#/$defs/httpUrl",
+          "description": "OIDC issuer URL (e.g., https://keycloak.example.com/realms/dev)"
+        },
+        "realm": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Realm name"
+        }
+      }
+    },
+    "authType": {
+      "type": "string",
+      "enum": ["none", "oauth2-proxy", "portal"],
+      "description": "Authentication type for a service"
+    },
+    "nonEmptyRolesArray": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "minItems": 1,
+      "description": "Non-empty array of role names"
+    },
+    "service": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "url", "protected", "authType"],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/slug",
+          "description": "Stable identifier / slug (e.g., 'demo', 'api', 'docs')"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Display name (e.g., 'Demo App', 'API Documentation')"
+        },
+        "url": {
+          "$ref": "#/$defs/httpUrl",
+          "description": "Fully-qualified, browser-visible URL"
+        },
+        "protected": {
+          "type": "boolean",
+          "description": "Whether the service requires authentication"
+        },
+        "authType": {
+          "$ref": "#/$defs/authType",
+          "description": "How authentication is handled"
+        },
+        "group": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Optional grouping for UI organization"
+        },
+        "icon": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Optional icon (emoji or icon name)"
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Optional description"
+        },
+        "requiredRealmRoles": {
+          "$ref": "#/$defs/nonEmptyRolesArray",
+          "description": "Required realm roles to access this service (for UI filtering)"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "authType": { "const": "none" } }
+          },
+          "then": {
+            "properties": {
+              "protected": { "const": false }
+            },
+            "not": {
+              "required": ["requiredRealmRoles"]
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": { "authType": { "const": "oauth2-proxy" } }
+          },
+          "then": {
+            "properties": {
+              "protected": { "const": true }
+            },
+            "required": ["requiredRealmRoles"]
+          }
+        },
+        {
+          "if": {
+            "properties": { "authType": { "const": "portal" } }
+          },
+          "then": {
+            "properties": {
+              "protected": { "const": true }
+            },
+            "required": ["requiredRealmRoles"]
+          }
+        }
+      ]
+    }
+  }
+}

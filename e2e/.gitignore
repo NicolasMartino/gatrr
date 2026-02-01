@@ -1,0 +1,13 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Playwright
+playwright-report/
+test-results/
+playwright/.cache/
+
+# OS
+.DS_Store
