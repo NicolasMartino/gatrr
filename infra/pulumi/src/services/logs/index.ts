@@ -279,6 +279,9 @@ providers:
         "GF_AUTH_ANONYMOUS_ENABLED=true",
         "GF_AUTH_ANONYMOUS_ORG_ROLE=Admin",
         "GF_AUTH_DISABLE_LOGIN_FORM=true",
+        // Disable API key auth - oauth2-proxy passes Authorization header which
+        // Grafana tries to interpret as an API key, causing auth failures
+        "GF_AUTH_API_KEYS_ENABLED=false",
         // Server settings
         `GF_SERVER_ROOT_URL=${serviceUrl}`,
         "GF_SERVER_SERVE_FROM_SUB_PATH=false",
