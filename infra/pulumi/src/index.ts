@@ -31,7 +31,7 @@ import { createTraefik } from "./traefik";
 import { createKeycloak, buildClientRequest } from "./keycloak";
 import { createPortal } from "./portal";
 import { buildPortalImage } from "./images";
-import { generateDeploymentSecrets } from "./secrets";
+import { generateDeploymentSecrets } from "./secret-manager";
 
 // Import deployment config module
 import {
