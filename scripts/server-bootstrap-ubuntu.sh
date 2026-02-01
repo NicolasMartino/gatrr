@@ -25,7 +25,7 @@ set -euo pipefail
 #
 # Options:
 #   --pulumi-key <file>   Path to file containing Pulumi access token (enables full setup)
-#   --repo <url>          Git repo URL (default: https://github.com/YOUR_ORG/gatrr.git)
+#   --repo <url>          Git repo URL (required when --pulumi-key is used)
 #   --stack <name>        Pulumi stack to initialize: staging or prod (default: staging)
 #   --esc-env <name>      Pulumi ESC environment name (default: gatrr-<stack>)
 #   --deploy-key <file>   SSH public key for deployer user's authorized_keys
@@ -40,7 +40,7 @@ set -euo pipefail
 # --- Argument parsing ---
 PULUMI_KEY_FILE=""
 GIT_REPO_URL=""
-STACK_NAME="prod"
+STACK_NAME="staging"
 ESC_ENV_NAME=""
 DEPLOY_KEY_FILE=""
 
@@ -109,6 +109,7 @@ apt-get install -y --no-install-recommends \
   lsb-release \
   git \
   openssh-client \
+  openssh-server \
   jq \
   unzip
 
@@ -184,11 +185,13 @@ CLOUDFLARE_IPV6=(
 
 echo "    Adding Cloudflare IP ranges for ports 80/443..."
 for cidr in "${CLOUDFLARE_IPV4[@]}"; do
-  ufw allow from "$cidr" to any port 80,443 proto tcp
+  ufw allow from "$cidr" to any port 80 proto tcp
+  ufw allow from "$cidr" to any port 443 proto tcp
 done
 
 for cidr in "${CLOUDFLARE_IPV6[@]}"; do
-  ufw allow from "$cidr" to any port 80,443 proto tcp
+  ufw allow from "$cidr" to any port 80 proto tcp
+  ufw allow from "$cidr" to any port 443 proto tcp
 done
 
 # Enable UFW (--force to avoid interactive prompt)
@@ -212,7 +215,6 @@ PULUMI_BIN="/usr/local/bin/pulumi"
 install_pulumi() {
   local tmp_dir
   tmp_dir="$(mktemp -d)"
-  trap "rm -rf '${tmp_dir}'" RETURN
 
   echo "    Downloading Pulumi v${PULUMI_VERSION}..."
   curl -fsSL "https://get.pulumi.com/releases/sdk/pulumi-v${PULUMI_VERSION}-linux-x64.tar.gz" -o "${tmp_dir}/pulumi.tar.gz"
@@ -225,6 +227,9 @@ install_pulumi() {
       install -m 0755 "${tmp_dir}/pulumi/${bin}" "/usr/local/bin/${bin}"
     fi
   done
+
+  # Cleanup temp directory
+  rm -rf "${tmp_dir}"
 }
 
 if ! command -v pulumi >/dev/null 2>&1; then
@@ -276,6 +281,11 @@ fi
 usermod -aG docker deployer
 echo "    Added deployer to docker group"
 
+# Create deploy directories (outside git tree)
+mkdir -p /var/log/gatrr /var/run/gatrr
+chown deployer:deployer /var/log/gatrr /var/run/gatrr
+echo "    Created /var/log/gatrr and /var/run/gatrr"
+
 # Set up SSH authorized_keys with forced command (if deploy key provided)
 DEPLOYER_HOME="/home/deployer"
 DEPLOYER_SSH="${DEPLOYER_HOME}/.ssh"
@@ -284,7 +294,16 @@ mkdir -p "${DEPLOYER_SSH}"
 chmod 700 "${DEPLOYER_SSH}"
 
 if [[ -n "${DEPLOY_KEY_FILE}" && -f "${DEPLOY_KEY_FILE}" ]]; then
-  DEPLOY_PUBKEY="$(cat "${DEPLOY_KEY_FILE}")"
+  # Read and validate SSH public key (must be single line, valid format)
+  DEPLOY_PUBKEY="$(tr -d '\n\r' < "${DEPLOY_KEY_FILE}")"
+
+  # Validate key format (should start with ssh-ed25519, ssh-rsa, ecdsa-sha2-*, or sk-*)
+  if ! [[ "${DEPLOY_PUBKEY}" =~ ^(ssh-ed25519|ssh-rsa|ecdsa-sha2-nistp[0-9]+|sk-ssh-ed25519@openssh\.com|sk-ecdsa-sha2-nistp[0-9]+@openssh\.com)[[:space:]] ]]; then
+    echo "ERROR: Invalid SSH public key format in ${DEPLOY_KEY_FILE}" >&2
+    echo "       Key must start with ssh-ed25519, ssh-rsa, ecdsa-sha2-*, or sk-*" >&2
+    exit 1
+  fi
+
   FORCED_CMD='command="/data/gatrr/scripts/ssh-deploy-entrypoint.sh",no-pty,no-agent-forwarding,no-port-forwarding,no-user-rc,no-X11-forwarding'
 
   AUTH_KEYS="${DEPLOYER_SSH}/authorized_keys"
@@ -316,8 +335,8 @@ echo "    Pulumi credentials configured"
 
 # Verify Pulumi login works
 echo "    Verifying Pulumi authentication..."
-if sudo -u deployer pulumi whoami &>/dev/null; then
-  PULUMI_USER="$(sudo -u deployer pulumi whoami)"
+if sudo -u deployer bash -c 'cd ~ && pulumi whoami' &>/dev/null; then
+  PULUMI_USER="$(sudo -u deployer bash -c 'cd ~ && pulumi whoami')"
   echo "    Authenticated as: ${PULUMI_USER}"
 else
   echo "ERROR: Pulumi authentication failed. Check your access token." >&2
@@ -330,6 +349,7 @@ REPO_DIR="/data/gatrr"
 mkdir -p /data
 if [[ -d "${REPO_DIR}/.git" ]]; then
   echo "    Repository already exists at ${REPO_DIR}"
+  chown -R deployer:deployer "${REPO_DIR}"
   cd "${REPO_DIR}"
   sudo -u deployer git fetch origin
 else
@@ -337,6 +357,7 @@ else
   chown -R deployer:deployer "${REPO_DIR}"
   echo "    Cloned to ${REPO_DIR}"
 fi
+cd "${REPO_DIR}"
 
 echo "==> Installing infra dependencies"
 cd "${REPO_DIR}/infra/pulumi"

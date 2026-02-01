@@ -39,8 +39,8 @@ if [[ ! -d "${REPO_DIR}/.git" ]]; then
   exit 1
 fi
 
-# Use repo-local paths to avoid permission issues with deployer user
-LOG_DIR="${LOG_DIR:-${REPO_DIR}/.deploy-logs}"
+# Use paths outside git tree to avoid dirtying the repo
+LOG_DIR="${LOG_DIR:-/var/log/gatrr}"
 mkdir -p "${LOG_DIR}"
 
 TIMESTAMP="$(date +%Y%m%d-%H%M%S)"
@@ -54,8 +54,9 @@ echo "    Stack: ${STACK}"
 echo "    SHA:   ${SHA}"
 echo "    Log:   ${LOG_FILE}"
 
-# Lock file in repo dir (deployer has write access)
-LOCK_FILE="${REPO_DIR}/.deploy.lock"
+# Lock file outside git tree
+LOCK_FILE="${LOCK_FILE:-/var/run/gatrr/deploy.lock}"
+mkdir -p "$(dirname "${LOCK_FILE}")"
 exec 9>"${LOCK_FILE}"
 if ! flock -n 9; then
   echo "ERROR: another deploy is in progress (lock: ${LOCK_FILE})" >&2
