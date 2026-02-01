@@ -31,7 +31,7 @@ import { createTraefik } from "./traefik";
 import { createKeycloak, buildClientRequest } from "./keycloak";
 import { createPortal } from "./portal";
 import { buildPortalImage } from "./images";
-import { generateDeploymentSecrets, GeneratedSecrets } from "./secrets";
+import { generateDeploymentSecrets } from "./secrets";
 
 // Import deployment config module
 import {
@@ -91,7 +91,7 @@ const keycloakAdminPassword = secretsConfig.requireSecret("keycloakAdminPassword
 //
 // Protected service IDs are derived from deployment config (not hardcoded).
 const protectedServiceIds = getProtectedServiceIdsFromConfig(deploymentConfig);
-const generatedSecrets: GeneratedSecrets = generateDeploymentSecrets(config.deploymentId, protectedServiceIds);
+const generatedSecrets = generateDeploymentSecrets(config.deploymentId, protectedServiceIds);
 
 // =============================================================================
 // INFRASTRUCTURE

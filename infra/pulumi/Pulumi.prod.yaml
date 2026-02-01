@@ -15,7 +15,7 @@
 
 # Import all config and secrets from Pulumi ESC
 environment:
-  - gatrr-prod
+  - NicolasMartino-org/gatrr/prod
 
 # No config section needed - everything comes from ESC
 # The encryptionsalt is for any locally-set secrets (not used with ESC)
