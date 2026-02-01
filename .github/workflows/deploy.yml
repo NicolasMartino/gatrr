@@ -7,14 +7,12 @@
 # This approach is required because Docker images are built with skipPush: true,
 # meaning builds must happen on the target Docker daemon.
 #
-# Required Secrets (Settings > Secrets and variables > Actions):
+# Authentication:
+# - Uses Pulumi ESC via OIDC (no long-lived secrets in GitHub)
+# - SSH credentials fetched from ESC environment at runtime
 #
-# | Secret              | Description                                      |
-# |---------------------|--------------------------------------------------|
-# | SSH_PRIVATE_KEY     | Ed25519 private key for deployer                 |
-# | SSH_KNOWN_HOSTS     | Output of ssh-keyscan -t ed25519 <host>          |
-# | PULUMI_ACCESS_TOKEN | Pulumi Cloud token (for preview job)             |
-# | DEPLOY_HOST         | Deploy target, e.g. deployer@your-server.example |
+# Required Variables (Settings > Secrets and variables > Actions > Variables):
+# - PULUMI_ORG: Your Pulumi organization name (e.g., NicolasMartino-org)
 #
 # See docs/deploy.md for full setup instructions.
 
@@ -90,13 +88,14 @@ jobs:
   # ===========================================================================
 
   preview:
-    name: Preview (staging)
+    name: Preview (prod)
     runs-on: ubuntu-latest
     needs: [test, lint]
-    # Skip for fork PRs (secrets not available)
+    # Skip for fork PRs (OIDC not available)
     if: github.event.pull_request.head.repo.fork != true
-    env:
-      PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
+    permissions:
+      id-token: write
+      contents: read
     steps:
       - uses: actions/checkout@v4
 
@@ -114,10 +113,16 @@ jobs:
         run: npm run build
         working-directory: ${{ env.PULUMI_DIR }}
 
+      # Authenticate to Pulumi via OIDC (no PULUMI_ACCESS_TOKEN needed)
+      - uses: pulumi/auth-actions@v1
+        with:
+          organization: ${{ vars.PULUMI_ORG }}
+          requested-token-type: access-token
+
       - uses: pulumi/actions@v5
         with:
           command: preview
-          stack-name: staging
+          stack-name: prod
           work-dir: ${{ env.PULUMI_DIR }}
           diff: true
 
@@ -126,26 +131,59 @@ jobs:
   # ===========================================================================
 
   deploy:
-    name: Deploy (staging)
+    name: Deploy (prod)
     runs-on: ubuntu-latest
     needs: [preview]
     if: github.ref == 'refs/heads/master' && github.event_name == 'workflow_dispatch'
     environment:
-      name: staging
+      name: prod
+    permissions:
+      id-token: write
+      contents: read
     concurrency:
-      group: deploy-staging
+      group: deploy-prod
       cancel-in-progress: false
     steps:
-      - name: Setup SSH
+      # Authenticate to Pulumi via OIDC
+      - uses: pulumi/auth-actions@v1
+        with:
+          organization: ${{ vars.PULUMI_ORG }}
+          requested-token-type: access-token
+
+      # Fetch SSH secrets from Pulumi ESC
+      - name: Get deploy secrets from ESC
         run: |
+          # Install Pulumi CLI
+          curl -fsSL https://get.pulumi.com | sh
+          export PATH="$HOME/.pulumi/bin:$PATH"
+
+          # Fetch secrets from ESC environment
+          pulumi env open ${{ vars.PULUMI_ORG }}/gatrr/prod --format json > /tmp/esc.json
+
+          # Extract SSH credentials
+          DEPLOY_HOST=$(jq -r '.ssh.deployHost' /tmp/esc.json)
+          PRIVATE_KEY=$(jq -r '.ssh.privateKey' /tmp/esc.json)
+          KNOWN_HOSTS=$(jq -r '.ssh.knownHosts' /tmp/esc.json)
+
+          # Setup SSH
           mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
+          echo "$PRIVATE_KEY" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
-          echo "${{ secrets.SSH_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+          echo "$KNOWN_HOSTS" > ~/.ssh/known_hosts
           chmod 600 ~/.ssh/known_hosts
 
-      - name: Deploy to staging
+          # Export for next step
+          echo "DEPLOY_HOST=$DEPLOY_HOST" >> $GITHUB_ENV
+
+          # Cleanup
+          rm /tmp/esc.json
+
+      - name: Deploy to prod
         run: |
           sha="${{ inputs.sha || github.sha }}"
           echo "Deploying SHA: ${sha}"
-          ssh ${{ secrets.DEPLOY_HOST }} "deploy staging ${sha}"
+          ssh ${{ env.DEPLOY_HOST }} "deploy prod ${sha}"
+
+      - name: Cleanup SSH keys
+        if: always()
+        run: rm -f ~/.ssh/id_ed25519
