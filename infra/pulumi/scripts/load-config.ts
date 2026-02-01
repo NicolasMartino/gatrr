@@ -47,7 +47,7 @@ interface UserConfig {
   roles?: string | string[];
 }
 
-interface SecretsConfig {
+interface CredentialsConfig {
   keycloakAdminUsername: string;
   keycloakAdminPassword: string;
   users: UserConfig[];
@@ -56,7 +56,7 @@ interface SecretsConfig {
 interface ConfigFile {
   stack: StackConfig;
   services: Record<string, ServiceConfig>;
-  secrets: SecretsConfig;
+  credentials: CredentialsConfig;
 }
 
 // =============================================================================
@@ -140,7 +140,7 @@ services:
     icon: activity
     description: Centralized logs (Grafana + Loki)
 
-secrets:
+credentials:
   keycloakAdminUsername: admin
   keycloakAdminPassword: CHANGE_ME
   users:
@@ -210,14 +210,14 @@ function validateServices(value: unknown): Record<string, ServiceConfig> {
 
 function validateUser(value: unknown, index: number): UserConfig {
   if (!isPlainObject(value)) {
-    throw new Error(`Invalid secrets.users[${index}]: must be an object`);
+    throw new Error(`Invalid credentials.users[${index}]: must be an object`);
   }
 
-  const username = requireString(value, "username", `secrets.users[${index}]`);
-  const password = requireString(value, "password", `secrets.users[${index}]`);
+  const username = requireString(value, "username", `credentials.users[${index}]`);
+  const password = requireString(value, "password", `credentials.users[${index}]`);
 
   if (!/^[a-z][a-z0-9-]*$/.test(username)) {
-    throw new Error(`Invalid secrets.users[${index}].username: "${username}" must be a valid slug`);
+    throw new Error(`Invalid credentials.users[${index}].username: "${username}" must be a valid slug`);
   }
 
   return {
@@ -230,16 +230,16 @@ function validateUser(value: unknown, index: number): UserConfig {
   };
 }
 
-function validateSecrets(value: unknown): SecretsConfig {
+function validateCredentials(value: unknown): CredentialsConfig {
   if (!isPlainObject(value)) {
-    throw new Error("Invalid config: 'secrets' must be an object");
+    throw new Error("Invalid config: 'credentials' must be an object");
   }
 
-  const keycloakAdminUsername = requireString(value, "keycloakAdminUsername", "secrets");
-  const keycloakAdminPassword = requireString(value, "keycloakAdminPassword", "secrets");
+  const keycloakAdminUsername = requireString(value, "keycloakAdminUsername", "credentials");
+  const keycloakAdminPassword = requireString(value, "keycloakAdminPassword", "credentials");
 
   if (!Array.isArray(value.users) || value.users.length === 0) {
-    throw new Error("Invalid config: 'secrets.users' must be a non-empty array");
+    throw new Error("Invalid config: 'credentials.users' must be a non-empty array");
   }
 
   const users = value.users.map((u, i) => validateUser(u, i));
@@ -248,7 +248,7 @@ function validateSecrets(value: unknown): SecretsConfig {
   const seen = new Set<string>();
   for (const user of users) {
     if (seen.has(user.username)) {
-      throw new Error(`Duplicate username in secrets.users: "${user.username}"`);
+      throw new Error(`Duplicate username in credentials.users: "${user.username}"`);
     }
     seen.add(user.username);
   }
@@ -264,7 +264,7 @@ function validateConfigFile(value: unknown): ConfigFile {
   return {
     stack: validateStackConfig(value.stack),
     services: validateServices(value.services),
-    secrets: validateSecrets(value.secrets),
+    credentials: validateCredentials(value.credentials),
   };
 }
 
@@ -328,12 +328,12 @@ function main(): void {
   const servicesYaml = yaml.dump(config.services, { flowLevel: -1 });
   setConfig("services", servicesYaml);
 
-  // Set secrets
-  setSecret("keycloakAdminUsername", config.secrets.keycloakAdminUsername);
-  setSecret("keycloakAdminPassword", config.secrets.keycloakAdminPassword);
+  // Set credentials (as Pulumi secrets)
+  setSecret("keycloakAdminUsername", config.credentials.keycloakAdminUsername);
+  setSecret("keycloakAdminPassword", config.credentials.keycloakAdminPassword);
 
   // Set unified users as YAML
-  const usersYaml = yaml.dump(config.secrets.users, { flowLevel: -1 });
+  const usersYaml = yaml.dump(config.credentials.users, { flowLevel: -1 });
   setSecret("unifiedUsers", usersYaml);
 
   console.log(
@@ -341,7 +341,7 @@ function main(): void {
       `  Stack: ${config.stack.deploymentId} (${config.stack.environment})\n` +
       `  Domain: ${config.stack.baseDomain}\n` +
       `  Services: ${Object.keys(config.services).join(", ")}\n` +
-      `  Users: ${config.secrets.users.map((u) => u.username).join(", ")}\n`
+      `  Users: ${config.credentials.users.map((u) => u.username).join(", ")}\n`
   );
 }
 

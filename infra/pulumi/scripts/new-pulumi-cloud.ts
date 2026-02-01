@@ -7,6 +7,11 @@
  *
  * This generates a YAML file formatted for Pulumi Cloud Environments (ESC).
  * Copy the contents into the Pulumi Cloud web UI (Environments → New → YAML editor).
+ *
+ * Structure:
+ * - Clean, readable values at top (stack settings, services, secrets, ssh)
+ * - pulumiConfig section at bottom references values above
+ * - Only actual secrets (passwords, keys) use fn::secret
  */
 
 import * as fs from "node:fs";
@@ -18,61 +23,103 @@ function generateEscExample(stack: string): string {
 # Docs: https://www.pulumi.com/docs/esc/
 
 values:
+  # ==========================================================================
+  # Stack Settings
+  # ==========================================================================
+  stack:
+    deploymentId: ${stack}
+    baseDomain: example.com           # Your domain
+    environment: prod                 # dev or prod
+    keycloakRealm: ${stack}
+    keycloakDevMode: false            # true for dev, false for prod
+    useHttps: true                    # Enable for production
+    acmeEmail: admin@example.com      # Required if useHttps is true
+
+  # ==========================================================================
+  # Services
+  # ==========================================================================
+  services:
+    demo:
+      portalName: Demo App
+      requiredRoles:
+        - admin
+        - dev
+      group: apps
+      icon: rocket
+      description: Demo application
+    docs:
+      portalName: Documentation
+      group: docs
+      icon: book
+      description: Public documentation
+    dozzle:
+      portalName: Dozzle
+      requiredRoles:
+        - admin
+      group: admin
+      icon: file-text
+      description: Container log viewer
+    logs:
+      portalName: Logs
+      requiredRoles:
+        - admin
+      group: admin
+      icon: activity
+      description: Centralized logs
+
+  # ==========================================================================
+  # Credentials (only passwords use fn::secret)
+  # ==========================================================================
+  credentials:
+    keycloakAdminUsername: admin
+    keycloakAdminPassword:
+      fn::secret: CHANGE_ME
+    users:
+      - username: admin
+        password:
+          fn::secret: CHANGE_ME
+        roles: admin
+        email: admin@example.com
+      - username: dev
+        password:
+          fn::secret: CHANGE_ME
+        roles: dev
+        email: dev@example.com
+
+  # ==========================================================================
+  # SSH Credentials (for CI/CD deployment)
+  # ==========================================================================
+  # Generate key: ssh-keygen -t ed25519 -f deploy_key -N "" -C "ci-deploy"
+  # Get known_hosts: ssh-keyscan -t ed25519 your-server.com
+  ssh:
+    privateKey:
+      fn::secret: |
+        -----BEGIN OPENSSH PRIVATE KEY-----
+        CHANGE_ME: paste your deploy_key private key here
+        -----END OPENSSH PRIVATE KEY-----
+    knownHosts: "your-server.com ssh-ed25519 AAAA..."
+    deployHost: "deployer@your-server.com"
+
+  # ==========================================================================
+  # Pulumi Config Mapping (references values above)
+  # ==========================================================================
   pulumiConfig:
     # Stack settings
-    gatrr:deploymentId: ${stack}
-    gatrr:baseDomain: example.com        # Your domain
-    gatrr:environment: prod              # dev or prod
-    gatrr:keycloakRealm: ${stack}
-    gatrr:keycloakDevMode: "false"       # true for dev, false for prod
-    gatrr:useHttps: "true"               # Enable for production
-    gatrr:acmeEmail: admin@example.com   # Required if useHttps is true
-
-    # Services (YAML format)
-    gatrr:services: |
-      demo:
-        portalName: Demo App
-        requiredRoles:
-          - admin
-          - dev
-        group: apps
-        icon: rocket
-        description: Demo application
-      docs:
-        portalName: Documentation
-        group: docs
-        icon: book
-        description: Public documentation
-      dozzle:
-        portalName: Dozzle
-        requiredRoles:
-          - admin
-        group: admin
-        icon: file-text
-        description: Container log viewer
-      logs:
-        portalName: Logs
-        requiredRoles:
-          - admin
-        group: admin
-        icon: activity
-        description: Centralized logs
-
-    # Secrets (use fn::secret for sensitive values)
-    secrets:keycloakAdminUsername:
-      fn::secret: admin
-    secrets:keycloakAdminPassword:
-      fn::secret: CHANGE_ME
+    gatrr:deploymentId: \${stack.deploymentId}
+    gatrr:baseDomain: \${stack.baseDomain}
+    gatrr:environment: \${stack.environment}
+    gatrr:keycloakRealm: \${stack.keycloakRealm}
+    gatrr:keycloakDevMode: \${stack.keycloakDevMode}
+    gatrr:useHttps: \${stack.useHttps}
+    gatrr:acmeEmail: \${stack.acmeEmail}
+    # Services (as YAML string)
+    gatrr:services:
+      fn::toJSON: \${services}
+    # Credentials (mapped to secrets: namespace in Pulumi)
+    secrets:keycloakAdminUsername: \${credentials.keycloakAdminUsername}
+    secrets:keycloakAdminPassword: \${credentials.keycloakAdminPassword}
     secrets:unifiedUsers:
-      fn::secret: |
-        - username: admin
-          password: CHANGE_ME
-          roles: admin
-          email: admin@example.com
-        - username: dev
-          password: CHANGE_ME
-          roles: dev
-          email: dev@example.com
+      fn::toJSON: \${credentials.users}
 `;
 }
 

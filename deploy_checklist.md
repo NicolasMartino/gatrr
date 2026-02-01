@@ -5,24 +5,55 @@
 Pulumi ESC provides secure secret access without storing credentials in GitHub.
 GitHub Actions authenticates via OIDC - no long-lived tokens.
 
-### 1. Create Pulumi ESC Environment
-
-In Pulumi Cloud → ESC → Environments → Create:
-
-```yaml
-# Environment name: gatrr-deploy
-values:
-  ssh:
-    privateKey:
-      fn::secret: |
-        -----BEGIN OPENSSH PRIVATE KEY-----
-        ... your deploy key ...
-        -----END OPENSSH PRIVATE KEY-----
-    knownHosts: "your-server.com ssh-ed25519 AAAA..."
-    deployHost: "deployer@your-server.com"
+**Generated template file:**
+```bash
+cd infra/pulumi
+npm run new:pulumiCloud prod    # Generates esc.prod.yaml
 ```
 
-### 2. Register GitHub as OIDC Issuer (Organization Settings)
+This creates `infra/pulumi/esc.prod.yaml` containing:
+- Stack configuration (domain, HTTPS, etc.)
+- Application secrets (Keycloak passwords, users)
+- SSH credentials for CI/CD deployment
+
+### 1. Create ESC Environment in Pulumi Cloud
+
+**Steps:**
+
+1. Generate the template (if not already done):
+   ```bash
+   cd infra/pulumi && npm run new:pulumiCloud prod
+   ```
+
+2. In Pulumi Cloud → ESC → Environments → **Create Environment** named `gatrr-prod`
+
+3. Copy the entire contents of `esc.prod.yaml` into the YAML editor
+
+4. **Update these placeholder values** with your real configuration:
+   - [ ] `gatrr:baseDomain`: `example.com` → your actual domain
+   - [ ] `gatrr:acmeEmail`: `admin@example.com` → your email for Let's Encrypt
+   - [ ] `secrets:keycloakAdminPassword`: `CHANGE_ME` → strong password
+   - [ ] `secrets:unifiedUsers`: Update usernames, passwords, and emails
+   - [ ] `ssh.privateKey`: Paste your deploy key private key
+   - [ ] `ssh.knownHosts`: Run `ssh-keyscan -t ed25519 your-server.com`
+   - [ ] `ssh.deployHost`: `deployer@your-server.com`
+
+5. Click **Save**
+
+> **Note:** The template stays in git with placeholder values. Your real secrets live only in Pulumi Cloud.
+
+### 2. Stack Configuration (Already Done)
+
+The stack config file `infra/pulumi/Pulumi.prod.yaml` is already configured to import from ESC:
+
+```yaml
+environment:
+  - gatrr-prod
+```
+
+All configuration and secrets are pulled from the ESC environment.
+
+### 3. Register GitHub as OIDC Issuer (Organization Settings)
 
 In Pulumi Cloud → **Organization Settings** → **OIDC Issuers**:
 
@@ -31,7 +62,7 @@ In Pulumi Cloud → **Organization Settings** → **OIDC Issuers**:
 - [ ] **URL:** `https://token.actions.githubusercontent.com`
 - [ ] Click **Register**
 
-### 3. Add Authorization Policy
+### 4. Add Authorization Policy
 
 Under the issuer you just created, add a policy:
 
@@ -46,7 +77,7 @@ The subject pattern restricts access to only master branch. You can use:
 - `repo:org/repo:ref:refs/heads/master` - only master
 - `repo:org/repo:environment:production` - only production environment
 
-### 4. GitHub Repository Settings
+### 5. GitHub Repository Settings
 
 Configure these in GitHub repo settings → Secrets and variables → Actions:
 
@@ -56,38 +87,52 @@ No other secrets needed - everything comes from Pulumi ESC via OIDC.
 
 ## Pre-Deployment: Server Setup
 
-Run on fresh Ubuntu server as root:
+### Prerequisites
+
+Before running the bootstrap script, prepare these files locally:
+
+1. **Pulumi Access Token** (`pulumi.key`):
+   - Go to Pulumi Cloud → Settings → Access Tokens → Create Token
+   - Save the token to a file: `echo "pul-xxxx..." > pulumi.key`
+
+2. **Deploy SSH Key Pair** (for CI to SSH to server):
+   ```bash
+   ssh-keygen -t ed25519 -f deploy_key -N "" -C "ci-deploy"
+   # This creates: deploy_key (private) and deploy_key.pub (public)
+   ```
+
+3. **Copy files to server**:
+   ```bash
+   scp pulumi.key deploy_key.pub root@your-server:/root/
+   ```
+
+### Run Bootstrap Script
+
+SSH to server as root and run:
 
 ```bash
-# Bootstrap server (installs Docker, Node, Pulumi, UFW firewall)
-curl -fsSL https://raw.githubusercontent.com/<org>/gatrr/master/scripts/server-bootstrap-ubuntu.sh | sudo bash
+./server-bootstrap-ubuntu.sh \
+  --pulumi-key /root/pulumi.key \
+  --repo https://github.com/<org>/gatrr.git \
+  --stack prod \
+  --deploy-key /root/deploy_key.pub
 ```
 
-- [ ] Create deployer user with docker access:
-  ```bash
-  useradd -m -s /bin/bash deployer
-  usermod -aG docker deployer
-  ```
+This script will:
+- [x] Install Docker, Node.js 20, Pulumi CLI, UFW firewall
+- [x] Configure UFW to allow SSH and Cloudflare IPs only for 80/443
+- [x] Create `deployer` user with docker access
+- [x] Configure SSH forced-command in authorized_keys
+- [x] Set up Pulumi authentication for deployer
+- [x] Clone repo to `/data/gatrr`
+- [x] Install npm dependencies
+- [x] Initialize Pulumi stack
 
-- [ ] Configure SSH forced-command in `/home/deployer/.ssh/authorized_keys`:
-  ```
-  command="/data/gatrr/scripts/ssh-deploy-entrypoint.sh",no-pty,no-agent-forwarding,no-port-forwarding,no-user-rc,no-X11-forwarding ssh-ed25519 AAAA... ci-deploy
-  ```
+### Post-Bootstrap Verification
 
-- [ ] Clone repo to `/data/gatrr`:
+- [ ] Verify Pulumi auth works:
   ```bash
-  mkdir -p /data && cd /data
-  git clone https://github.com/<org>/gatrr.git
-  chown -R deployer:deployer /data/gatrr
-  ```
-
-- [ ] Initialize Pulumi stack:
-  ```bash
-  cd /data/gatrr/infra/pulumi
-  npm ci
-  export PULUMI_CONFIG_PASSPHRASE="<your-passphrase>"
-  pulumi stack init staging
-  # Configure stack values...
+  sudo -u deployer pulumi whoami
   ```
 
 - [ ] Verify firewall is active:
@@ -96,11 +141,16 @@ curl -fsSL https://raw.githubusercontent.com/<org>/gatrr/master/scripts/server-b
   # Should show: 22 open, 80/443 from Cloudflare IPs only
   ```
 
+- [ ] Clean up sensitive files:
+  ```bash
+  rm /root/pulumi.key /root/deploy_key.pub
+  ```
+
 ## Pre-Deployment: Verify OIDC Setup
 
 - [ ] Test Pulumi ESC access locally (optional, for debugging):
   ```bash
-  pulumi env open gatrr-deploy
+  pulumi env open gatrr-prod
   # Should show your secrets (redacted)
   ```
 
@@ -119,7 +169,7 @@ curl -fsSL https://raw.githubusercontent.com/<org>/gatrr/master/scripts/server-b
           with:
             organization: ${{ vars.PULUMI_ORG }}
             requested-token-type: access-token
-        - run: pulumi env open gatrr-deploy --format=json | jq 'keys'
+        - run: pulumi env open gatrr-prod --format=json | jq 'keys'
   ```
 
 - [ ] Run the test workflow and verify it can access the environment
@@ -173,7 +223,7 @@ jobs:
       # Fetch secrets from Pulumi ESC
       - name: Get deploy secrets
         run: |
-          pulumi env open gatrr-deploy --format=shell > .env
+          pulumi env open gatrr-prod --format=shell > .env
           source .env
           echo "DEPLOY_HOST=$ssh_deployHost" >> $GITHUB_ENV
           echo "$ssh_privateKey" > /tmp/deploy_key
@@ -202,9 +252,12 @@ jobs:
 
 ## Before Production Deploy
 
-- [ ] Update `Pulumi.prod.yaml` with real domain (replace `example.com`)
-- [ ] Set `acmeEmail` for Let's Encrypt notifications
-- [ ] Test HTTPS on staging first (`useHttps: true`)
+- [ ] Verify ESC environment `gatrr-prod` has correct values:
+  - [ ] `gatrr:baseDomain` is your real domain (not `example.com`)
+  - [ ] `gatrr:acmeEmail` is set for Let's Encrypt notifications
+  - [ ] `gatrr:useHttps` is `"true"`
+  - [ ] All `secrets:*` values are strong, non-default passwords
+- [ ] Test HTTPS on staging first
 - [ ] Add production deploy job to `.github/workflows/deploy.yml`
 - [ ] Configure GitHub environment protection rules for `production`
 - [ ] Initialize prod Pulumi stack on server
@@ -259,10 +312,11 @@ Or trigger via GitHub Actions with specific SHA.
 
 | Secret | Location | Rotation Frequency | How to Rotate |
 |--------|----------|-------------------|---------------|
-| SSH deploy key | Pulumi ESC | Annually or on compromise | Generate new key, update `authorized_keys` + Pulumi ESC |
-| Pulumi passphrase | Local/Server | On compromise only | Re-encrypt all stacks |
-| Keycloak admin password | Pulumi Config | Quarterly | Update via Pulumi config |
-| OAuth2 client secrets | Pulumi Config | Annually | Rotate in Keycloak + Pulumi config |
+| SSH deploy key | ESC `gatrr-prod` | Annually or on compromise | Generate new key, update `authorized_keys` + ESC |
+| Pulumi access token | Server `~/.pulumi/credentials.json` | Annually or on compromise | Create new token in Pulumi Cloud, re-run bootstrap |
+| Keycloak admin password | ESC `gatrr-prod` | Quarterly | Update in ESC environment |
+| User passwords | ESC `gatrr-prod` | On request or compromise | Update `secrets:unifiedUsers` in ESC |
+| OAuth2 client secrets | Pulumi state (auto-generated) | Annually | Delete from state, redeploy to regenerate |
 
 ## OIDC Security Benefits
 
