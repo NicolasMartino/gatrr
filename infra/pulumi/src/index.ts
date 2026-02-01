@@ -33,6 +33,14 @@ import { createPortal } from "./portal";
 import { buildPortalImage } from "./images";
 import { generateDeploymentSecrets } from "./secrets";
 
+// Inline type definition for generated secrets
+// This helps typescript-eslint resolve types in strict mode across different environments
+interface GeneratedSecretsType {
+  portalClientSecret: pulumi.Output<string>;
+  oauth2ProxyCookieSecret: pulumi.Output<string>;
+  serviceClientSecrets: Record<string, pulumi.Output<string>>;
+}
+
 // Import deployment config module
 import {
   loadDeploymentConfigFile,
@@ -91,7 +99,7 @@ const keycloakAdminPassword = secretsConfig.requireSecret("keycloakAdminPassword
 //
 // Protected service IDs are derived from deployment config (not hardcoded).
 const protectedServiceIds = getProtectedServiceIdsFromConfig(deploymentConfig);
-const generatedSecrets = generateDeploymentSecrets(config.deploymentId, protectedServiceIds);
+const generatedSecrets: GeneratedSecretsType = generateDeploymentSecrets(config.deploymentId, protectedServiceIds);
 
 // =============================================================================
 // INFRASTRUCTURE
