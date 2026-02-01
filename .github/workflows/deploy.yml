@@ -13,6 +13,7 @@
 #
 # Required Variables (Settings > Secrets and variables > Actions > Variables):
 # - PULUMI_ORG: Your Pulumi organization name (e.g., NicolasMartino-org)
+# - PULUMI_USER: Your Pulumi username (e.g., NicolasMartino) - needed for OIDC on free tier
 #
 # See docs/deploy.md for full setup instructions.
 
@@ -114,10 +115,12 @@ jobs:
         working-directory: ${{ env.PULUMI_DIR }}
 
       # Authenticate to Pulumi via OIDC (no PULUMI_ACCESS_TOKEN needed)
+      # Free tier requires personal tokens with user scope
       - uses: pulumi/auth-actions@v1
         with:
           organization: ${{ vars.PULUMI_ORG }}
-          requested-token-type: access-token
+          requested-token-type: urn:pulumi:token-type:access_token:personal
+          scope: user:${{ vars.PULUMI_USER }}
 
       - uses: pulumi/actions@v5
         with:
@@ -144,11 +147,12 @@ jobs:
       group: deploy-prod
       cancel-in-progress: false
     steps:
-      # Authenticate to Pulumi via OIDC
+      # Authenticate to Pulumi via OIDC (personal token for free tier)
       - uses: pulumi/auth-actions@v1
         with:
           organization: ${{ vars.PULUMI_ORG }}
-          requested-token-type: access-token
+          requested-token-type: urn:pulumi:token-type:access_token:personal
+          scope: user:${{ vars.PULUMI_USER }}
 
       # Fetch SSH secrets from Pulumi ESC
       - name: Get deploy secrets from ESC
