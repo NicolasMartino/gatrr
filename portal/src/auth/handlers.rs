@@ -73,18 +73,20 @@ pub struct LogoutQuery {
 
 /// Create a HeaderValue from a string, returning an error response if invalid.
 /// This prevents panics from malformed cookie values.
-fn header_value(s: &str) -> Result<HeaderValue, Response> {
+fn header_value(s: &str) -> Result<HeaderValue, Box<Response>> {
     HeaderValue::from_str(s).map_err(|e: InvalidHeaderValue| {
         tracing::error!(
             error = %e,
             value_len = s.len(),
             "Failed to create header value - possible malformed token"
         );
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(serde_json::json!({"error": "Internal error setting response headers"})),
+        Box::new(
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({"error": "Internal error setting response headers"})),
+            )
+                .into_response(),
         )
-            .into_response()
     })
 }
 
@@ -184,7 +186,7 @@ pub async fn login_handler(
     let mut response = Redirect::to(auth_url.as_str()).into_response();
     response.headers_mut().insert(
         axum::http::header::SET_COOKIE,
-        header_value(&csrf_cookie)?,
+        header_value(&csrf_cookie).map_err(|e| *e)?,
     );
 
     Ok(response)
@@ -356,7 +358,7 @@ pub async fn callback_handler(
     // Set access token cookie - return error if header creation fails
     let access_header = match header_value(&access_cookie) {
         Ok(h) => h,
-        Err(e) => return e,
+        Err(e) => return *e,
     };
     response.headers_mut().insert(
         axum::http::header::SET_COOKIE,
@@ -374,7 +376,7 @@ pub async fn callback_handler(
         );
         let id_header = match header_value(&id_cookie) {
             Ok(h) => h,
-            Err(e) => return e,
+            Err(e) => return *e,
         };
         response.headers_mut().append(
             axum::http::header::SET_COOKIE,
@@ -393,7 +395,7 @@ pub async fn callback_handler(
     );
     let clear_header = match header_value(&clear_state_cookie) {
         Ok(h) => h,
-        Err(e) => return e,
+        Err(e) => return *e,
     };
     response.headers_mut().append(
         axum::http::header::SET_COOKIE,
