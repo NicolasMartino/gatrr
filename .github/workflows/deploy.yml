@@ -157,6 +157,8 @@ jobs:
       # Fetch SSH secrets from Pulumi ESC
       - name: Get deploy secrets from ESC
         run: |
+          set +x  # Ensure no command tracing
+
           # Install Pulumi CLI
           curl -fsSL https://get.pulumi.com | sh
           export PATH="$HOME/.pulumi/bin:$PATH"
@@ -169,6 +171,10 @@ jobs:
           PRIVATE_KEY=$(jq -r '.ssh.privateKey' /tmp/esc.json)
           KNOWN_HOSTS=$(jq -r '.ssh.knownHosts' /tmp/esc.json)
 
+          # Register secrets for GitHub log masking (prevents accidental leaks)
+          echo "::add-mask::$PRIVATE_KEY"
+          echo "::add-mask::$DEPLOY_HOST"
+
           # Setup SSH
           mkdir -p ~/.ssh
           echo "$PRIVATE_KEY" > ~/.ssh/id_ed25519
@@ -176,11 +182,11 @@ jobs:
           echo "$KNOWN_HOSTS" > ~/.ssh/known_hosts
           chmod 600 ~/.ssh/known_hosts
 
-          # Export for next step
+          # Export for next step (masked, won't appear in logs)
           echo "DEPLOY_HOST=$DEPLOY_HOST" >> $GITHUB_ENV
 
-          # Cleanup
-          rm /tmp/esc.json
+          # Cleanup sensitive file immediately
+          rm -f /tmp/esc.json
 
       - name: Deploy to prod
         run: |
