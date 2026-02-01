@@ -8,6 +8,7 @@
  * Realm roles are used for authorization (mapped to groups claim for oauth2-proxy).
  */
 
+import * as crypto from "crypto";
 import * as docker from "@pulumi/docker";
 import * as pulumi from "@pulumi/pulumi";
 import { DeploymentConfig, buildUrl } from "../config";
@@ -120,16 +121,26 @@ export function createKeycloak(inputs: KeycloakInputs): KeycloakResources {
       return serializeRealmImport(realmImport);
     });
 
+  // Compute hash of realm config to force container restart when config changes
+  const realmConfigHash = realmJson.apply((json) =>
+    crypto.createHash("sha256").update(json).digest("hex").substring(0, 16)
+  );
+
   // Build environment variables with secrets
   // Production mode uses strict hostname validation; dev mode is more relaxed
   const envs = pulumi
-    .all([adminUsername, adminPassword])
-    .apply(([username, password]) => {
+    .all([adminUsername, adminPassword, realmConfigHash])
+    .apply(([username, password, configHash]) => {
       const baseEnvs = [
         `KEYCLOAK_ADMIN=${username}`,
         `KEYCLOAK_ADMIN_PASSWORD=${password}`,
         `KC_HOSTNAME=keycloak.${config.baseDomain}`,
         "KC_PROXY_HEADERS=xforwarded",
+        // Force realm import to overwrite existing users/config on every restart
+        // This ensures ESC password changes are applied to Keycloak
+        "KC_SPI_IMPORT_IMPORTER_STRATEGY=OVERWRITE_EXISTING",
+        // Hash of realm config - changes when passwords/users change, forcing container restart
+        `REALM_CONFIG_HASH=${configHash}`,
       ];
 
       if (config.keycloakDevMode) {
