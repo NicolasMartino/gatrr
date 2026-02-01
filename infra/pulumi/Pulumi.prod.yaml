@@ -18,5 +18,4 @@ environment:
   - gatrr/prod
 
 # No config section needed - everything comes from ESC
-# The encryptionsalt is for any locally-set secrets (not used with ESC)
-encryptionsalt: v1:FMuBFb+yBbE=:v1:zeCMFQEPpMuW+GRd:rtmrjVQTCocStO66coqeL6/SCtxztA==
+# No encryptionsalt needed - all secrets managed by ESC
