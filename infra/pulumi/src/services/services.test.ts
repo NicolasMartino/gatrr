@@ -8,6 +8,7 @@
  */
 
 import { describe, it, expect } from "vitest";
+import type * as docker from "@pulumi/docker";
 import {
   SERVICE_CATALOG,
   getAvailableServiceIds,
@@ -16,6 +17,13 @@ import {
   deriveAuthzPolicies,
 } from "./index";
 import { ServiceModuleResult } from "../types";
+
+/** Create a minimal mock for docker.Container (tests don't use container properties) */
+function createMockContainer(): docker.Container {
+  return {} as docker.Container;
+}
+
+const mockContainer = createMockContainer();
 
 // =============================================================================
 // SERVICE_CATALOG tests
@@ -29,7 +37,7 @@ describe("SERVICE_CATALOG", () => {
   });
 
   it("all entries have factory functions", () => {
-    for (const [id, entry] of Object.entries(SERVICE_CATALOG)) {
+    for (const entry of Object.values(SERVICE_CATALOG)) {
       expect(entry.factory).toBeDefined();
       expect(typeof entry.factory).toBe("function");
     }
@@ -121,7 +129,7 @@ describe("deriveAuthzPolicies", () => {
           authType: "none",
         },
         routes: [],
-        resources: { container: {} as any },
+        resources: { container: mockContainer },
       },
     ];
 
@@ -142,7 +150,7 @@ describe("deriveAuthzPolicies", () => {
         },
         routes: [],
         oauth2ProxyAuthz: { requiredRealmRoles: ["demo"] },
-        resources: { container: {} as any },
+        resources: { container: mockContainer },
       },
     ];
 
@@ -165,7 +173,7 @@ describe("deriveAuthzPolicies", () => {
         },
         routes: [],
         oauth2ProxyAuthz: { requiredRealmRoles: ["demo"] },
-        resources: { container: {} as any },
+        resources: { container: mockContainer },
       },
       {
         id: "admin",
@@ -178,7 +186,7 @@ describe("deriveAuthzPolicies", () => {
         },
         routes: [],
         oauth2ProxyAuthz: { requiredRealmRoles: ["admin", "ops"] },
-        resources: { container: {} as any },
+        resources: { container: mockContainer },
       },
       {
         id: "docs",
@@ -190,7 +198,7 @@ describe("deriveAuthzPolicies", () => {
           authType: "none",
         },
         routes: [],
-        resources: { container: {} as any },
+        resources: { container: mockContainer },
       },
     ];
 
@@ -212,7 +220,7 @@ describe("deriveAuthzPolicies", () => {
         },
         routes: [],
         oauth2ProxyAuthz: { requiredRealmRoles: ["z"] },
-        resources: { container: {} as any },
+        resources: { container: mockContainer },
       },
       {
         id: "a-service",
@@ -225,7 +233,7 @@ describe("deriveAuthzPolicies", () => {
         },
         routes: [],
         oauth2ProxyAuthz: { requiredRealmRoles: ["a"] },
-        resources: { container: {} as any },
+        resources: { container: mockContainer },
       },
     ];
 

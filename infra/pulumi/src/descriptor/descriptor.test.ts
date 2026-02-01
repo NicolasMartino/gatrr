@@ -340,7 +340,7 @@ describe("serializeDescriptor", () => {
     const descriptor = generateDescriptor(testConfig, []);
     const json = serializeDescriptor(descriptor);
 
-    expect(() => JSON.parse(json)).not.toThrow();
+    expect(() => { JSON.parse(json); }).not.toThrow();
   });
 
   it("produces deterministic output", () => {
@@ -430,9 +430,12 @@ describe("integration: full descriptor generation", () => {
     expect(parsed.services.map((s) => s.id)).toEqual(["api", "demo", "docs"]);
 
     // Verify protected flags match authType
-    const apiService = parsed.services.find((s) => s.id === "api")!;
-    const demoService = parsed.services.find((s) => s.id === "demo")!;
-    const docsService = parsed.services.find((s) => s.id === "docs")!;
+    const apiService = parsed.services.find((s) => s.id === "api");
+    const demoService = parsed.services.find((s) => s.id === "demo");
+    const docsService = parsed.services.find((s) => s.id === "docs");
+    if (!apiService || !demoService || !docsService) {
+      throw new Error("Expected services not found");
+    }
 
     expect(apiService.protected).toBe(true);
     expect(apiService.authType).toBe("portal");

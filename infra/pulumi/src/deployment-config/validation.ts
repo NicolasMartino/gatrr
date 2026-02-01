@@ -183,7 +183,7 @@ export function validateUserConfig(
   index: number
 ): ValidationError[] {
   const errors: ValidationError[] = [];
-  const path = `users[${index}]`;
+  const path = `users[${String(index)}]`;
 
   if (!isValidUsername(user.username)) {
     errors.push({
@@ -234,8 +234,8 @@ export function validateRoleFormat(
   }
   return {
     code: "INVALID_ROLE_FORMAT",
-    message: `Invalid role "${role}" at roles[${index}]: must start with lowercase letter and contain only lowercase letters, numbers, and hyphens`,
-    path: `roles[${index}]`,
+    message: `Invalid role "${role}" at roles[${String(index)}]: must start with lowercase letter and contain only lowercase letters, numbers, and hyphens`,
+    path: `roles[${String(index)}]`,
   };
 }
 
@@ -276,11 +276,12 @@ export function validateDeploymentConfig(
 
     // Rule 7: User roles in allow-list (only if explicit roles provided)
     if (config.roles.length > 0) {
+      const user = config.users[i];
       const roleErrors = validateRolesInAllowList(
-        config.users[i].roles,
+        user.roles,
         config.roles,
-        `user "${config.users[i].username}"`,
-        `users[${i}].roles`
+        `user "${user.username}"`,
+        `users[${String(i)}].roles`
       );
       errors.push(...roleErrors);
     }

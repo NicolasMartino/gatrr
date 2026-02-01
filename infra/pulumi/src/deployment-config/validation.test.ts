@@ -20,6 +20,14 @@ import {
 } from "./validation";
 import { ResolvedDeploymentConfig, UserConfig } from "./types";
 
+/** Helper to assert non-null and return narrowed type */
+function assertNonNull<T>(value: T | null | undefined, message = "Expected non-null value"): T {
+  if (value === null || value === undefined) {
+    throw new Error(message);
+  }
+  return value;
+}
+
 describe("validateServiceExists", () => {
   const catalog = ["demo", "docs", "dozzle"];
 
@@ -29,17 +37,15 @@ describe("validateServiceExists", () => {
   });
 
   it("fails for unknown service ID", () => {
-    const error = validateServiceExists("unknown", catalog);
-    expect(error).not.toBeNull();
-    expect(error!.code).toBe("UNKNOWN_SERVICE");
-    expect(error!.message).toContain("unknown");
-    expect(error!.message).toContain("demo, docs, dozzle");
+    const error = assertNonNull(validateServiceExists("unknown", catalog));
+    expect(error.code).toBe("UNKNOWN_SERVICE");
+    expect(error.message).toContain("unknown");
+    expect(error.message).toContain("demo, docs, dozzle");
   });
 
   it("fails with empty catalog", () => {
-    const error = validateServiceExists("demo", []);
-    expect(error).not.toBeNull();
-    expect(error!.message).toContain("(none)");
+    const error = assertNonNull(validateServiceExists("demo", []));
+    expect(error.message).toContain("(none)");
   });
 });
 
@@ -51,9 +57,8 @@ describe("validateServiceIdFormat", () => {
   });
 
   it("fails for uppercase", () => {
-    const error = validateServiceIdFormat("Demo");
-    expect(error).not.toBeNull();
-    expect(error!.code).toBe("INVALID_SERVICE_ID");
+    const error = assertNonNull(validateServiceIdFormat("Demo"));
+    expect(error.code).toBe("INVALID_SERVICE_ID");
   });
 
   it("fails for underscore", () => {
@@ -84,10 +89,9 @@ describe("validateHostFormat", () => {
   });
 
   it("fails for invalid hosts", () => {
-    const error = validateHostFormat("My-App", "demo");
-    expect(error).not.toBeNull();
-    expect(error!.code).toBe("INVALID_HOST");
-    expect(error!.path).toBe("services.demo.host");
+    const error = assertNonNull(validateHostFormat("My-App", "demo"));
+    expect(error.code).toBe("INVALID_HOST");
+    expect(error.path).toBe("services.demo.host");
   });
 });
 
@@ -98,16 +102,14 @@ describe("validateNotReservedHost", () => {
   });
 
   it("fails for portal", () => {
-    const error = validateNotReservedHost("portal", "my-portal");
-    expect(error).not.toBeNull();
-    expect(error!.code).toBe("RESERVED_HOST");
-    expect(error!.message).toContain("portal");
+    const error = assertNonNull(validateNotReservedHost("portal", "my-portal"));
+    expect(error.code).toBe("RESERVED_HOST");
+    expect(error.message).toContain("portal");
   });
 
   it("fails for keycloak", () => {
-    const error = validateNotReservedHost("keycloak", "my-keycloak");
-    expect(error).not.toBeNull();
-    expect(error!.code).toBe("RESERVED_HOST");
+    const error = assertNonNull(validateNotReservedHost("keycloak", "my-keycloak"));
+    expect(error.code).toBe("RESERVED_HOST");
   });
 });
 
@@ -117,11 +119,10 @@ describe("validateAuthTypeRolesConsistency", () => {
   });
 
   it("fails: none + roles", () => {
-    const error = validateAuthTypeRolesConsistency("none", ["admin"], "demo");
-    expect(error).not.toBeNull();
-    expect(error!.code).toBe("AUTH_NONE_WITH_ROLES");
-    expect(error!.message).toContain("demo");
-    expect(error!.message).toContain("admin");
+    const error = assertNonNull(validateAuthTypeRolesConsistency("none", ["admin"], "demo"));
+    expect(error.code).toBe("AUTH_NONE_WITH_ROLES");
+    expect(error.message).toContain("demo");
+    expect(error.message).toContain("admin");
   });
 
   it("passes: oauth2-proxy + roles", () => {
@@ -129,9 +130,8 @@ describe("validateAuthTypeRolesConsistency", () => {
   });
 
   it("fails: oauth2-proxy + no roles", () => {
-    const error = validateAuthTypeRolesConsistency("oauth2-proxy", [], "demo");
-    expect(error).not.toBeNull();
-    expect(error!.code).toBe("OAUTH2_PROXY_WITHOUT_ROLES");
+    const error = assertNonNull(validateAuthTypeRolesConsistency("oauth2-proxy", [], "demo"));
+    expect(error.code).toBe("OAUTH2_PROXY_WITHOUT_ROLES");
   });
 
   it("passes: portal + roles", () => {
@@ -139,9 +139,8 @@ describe("validateAuthTypeRolesConsistency", () => {
   });
 
   it("fails: portal + no roles", () => {
-    const error = validateAuthTypeRolesConsistency("portal", [], "demo");
-    expect(error).not.toBeNull();
-    expect(error!.code).toBe("PORTAL_WITHOUT_ROLES");
+    const error = assertNonNull(validateAuthTypeRolesConsistency("portal", [], "demo"));
+    expect(error.code).toBe("PORTAL_WITHOUT_ROLES");
   });
 });
 
@@ -186,10 +185,9 @@ describe("validateUsersLocalOnly", () => {
   });
 
   it("fails: prod stack + users", () => {
-    const error = validateUsersLocalOnly(users, "prod");
-    expect(error).not.toBeNull();
-    expect(error!.code).toBe("USERS_NOT_LOCAL");
-    expect(error!.message).toContain("prod");
+    const error = assertNonNull(validateUsersLocalOnly(users, "prod"));
+    expect(error.code).toBe("USERS_NOT_LOCAL");
+    expect(error.message).toContain("prod");
   });
 
   it("passes: prod stack + no users", () => {
@@ -261,9 +259,8 @@ describe("validateRoleFormat", () => {
   });
 
   it("fails for invalid role", () => {
-    const error = validateRoleFormat("Admin", 0);
-    expect(error).not.toBeNull();
-    expect(error!.code).toBe("INVALID_ROLE_FORMAT");
+    const error = assertNonNull(validateRoleFormat("Admin", 0));
+    expect(error.code).toBe("INVALID_ROLE_FORMAT");
   });
 });
 
@@ -312,6 +309,7 @@ describe("validateDeploymentConfig", () => {
     };
     const result = validateDeploymentConfig(config, catalog);
     expect(result.valid).toBe(false);
+    if (result.valid) throw new Error("Expected invalid result");
     expect(result.errors.length).toBeGreaterThan(1);
   });
 
@@ -339,6 +337,7 @@ describe("validateDeploymentConfig", () => {
     };
     const result = validateDeploymentConfig(config, catalog);
     expect(result.valid).toBe(false);
+    if (result.valid) throw new Error("Expected invalid result");
     expect(result.errors.some((e) => e.code === "DUPLICATE_HOST")).toBe(true);
   });
 
@@ -359,6 +358,7 @@ describe("validateDeploymentConfig", () => {
     };
     const result = validateDeploymentConfig(config, catalog);
     expect(result.valid).toBe(false);
+    if (result.valid) throw new Error("Expected invalid result");
     expect(result.errors.some((e) => e.code === "ROLE_NOT_IN_ALLOWLIST")).toBe(true);
   });
 });
@@ -381,7 +381,7 @@ describe("assertValidDeploymentConfig", () => {
         },
       ],
     };
-    expect(() => assertValidDeploymentConfig(config, catalog)).not.toThrow();
+    expect(() => { assertValidDeploymentConfig(config, catalog); }).not.toThrow();
   });
 
   it("throws with all errors for invalid config", () => {
@@ -399,7 +399,7 @@ describe("assertValidDeploymentConfig", () => {
         },
       ],
     };
-    expect(() => assertValidDeploymentConfig(config, catalog)).toThrow(
+    expect(() => { assertValidDeploymentConfig(config, catalog); }).toThrow(
       /Deployment configuration validation failed/
     );
   });
@@ -460,7 +460,7 @@ describe("assertUserPasswordsProvided", () => {
       { username: "admin", email: "admin@test.com", roles: ["admin"] },
     ];
     const passwords = { admin: "admin-pass" };
-    expect(() => assertUserPasswordsProvided(users, passwords)).not.toThrow();
+    expect(() => { assertUserPasswordsProvided(users, passwords); }).not.toThrow();
   });
 
   it("throws when password is missing", () => {
@@ -468,7 +468,7 @@ describe("assertUserPasswordsProvided", () => {
       { username: "admin", email: "admin@test.com", roles: ["admin"] },
     ];
     const passwords: Record<string, string | undefined> = {};
-    expect(() => assertUserPasswordsProvided(users, passwords)).toThrow(
+    expect(() => { assertUserPasswordsProvided(users, passwords); }).toThrow(
       /Missing user passwords/
     );
   });

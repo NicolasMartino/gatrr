@@ -36,10 +36,11 @@ export function deriveAuthzPolicies(
   services: ServiceModuleResult[]
 ): Array<{ serviceId: string; policy: OAuth2ProxyAuthzPolicy }> {
   return services
-    .filter((svc) => svc.oauth2ProxyAuthz !== undefined)
+    .filter((svc): svc is ServiceModuleResult & { oauth2ProxyAuthz: OAuth2ProxyAuthzPolicy } =>
+      svc.oauth2ProxyAuthz !== undefined)
     .map((svc) => ({
       serviceId: svc.id,
-      policy: svc.oauth2ProxyAuthz!,
+      policy: svc.oauth2ProxyAuthz,
     }))
     .sort((a, b) => a.serviceId.localeCompare(b.serviceId, "en-US")); // Deterministic
 }

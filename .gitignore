@@ -82,3 +82,4 @@ claude.md
 infra/pulumi/test-results/.last-run.json
 ci__*
 Pulumi.*.yaml
+!Pulumi.prod.yaml

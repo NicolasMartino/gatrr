@@ -20,7 +20,7 @@ import {
   RealmImportInputs,
 } from "./realm-import";
 import { DeploymentConfig } from "../config";
-import { KeycloakClientRequest, OAuth2ProxyAuthzPolicy } from "../types";
+import { KeycloakClientRequest } from "../types";
 import { ResolvedDeploymentConfig, UserConfig } from "../deployment-config";
 
 const testConfig: DeploymentConfig = {
@@ -426,7 +426,7 @@ describe("serializeRealmImport", () => {
 
     const json = serializeRealmImport(realm);
 
-    expect(() => JSON.parse(json)).not.toThrow();
+    expect(() => { JSON.parse(json); }).not.toThrow();
   });
 
   it("uses 2-space indentation", () => {
@@ -507,8 +507,11 @@ describe("integration: roles protected services", () => {
     expect(realm.roles.realm.map((r) => r.name)).toEqual(["admin", "dev"]);
 
     // 2. Verify each oauth2-proxy client has the realm-role mapper
-    const demoClient = realm.clients.find((c) => c.clientId === "oauth2-proxy-demo")!;
-    const dozzleClient = realm.clients.find((c) => c.clientId === "oauth2-proxy-dozzle")!;
+    const demoClient = realm.clients.find((c) => c.clientId === "oauth2-proxy-demo");
+    const dozzleClient = realm.clients.find((c) => c.clientId === "oauth2-proxy-dozzle");
+    if (!demoClient || !dozzleClient) {
+      throw new Error("Expected clients not found");
+    }
 
     const demoMapper = demoClient.protocolMappers.find(
       (m) => m.protocolMapper === "oidc-usermodel-realm-role-mapper"
@@ -530,7 +533,10 @@ describe("integration: roles protected services", () => {
     expect(dozzleClient.redirectUris.every((uri) => !uri.includes("*"))).toBe(true);
 
     // 4. Verify portal client also has no wildcards
-    const portalClient = realm.clients.find((c) => c.clientId === "portal")!;
+    const portalClient = realm.clients.find((c) => c.clientId === "portal");
+    if (!portalClient) {
+      throw new Error("Expected portal client not found");
+    }
     expect(portalClient.redirectUris).toEqual(["http://portal.localhost/auth/callback"]);
     expect(portalClient.redirectUris.every((uri) => !uri.includes("*"))).toBe(true);
 

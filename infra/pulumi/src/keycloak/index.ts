@@ -97,13 +97,13 @@ export function createKeycloak(inputs: KeycloakInputs): KeycloakResources {
       // Resolve all client secrets
       const resolvedClientSecrets: Record<string, string> = {};
       for (const [serviceId, secret] of Object.entries(clientSecrets)) {
-        resolvedClientSecrets[serviceId] = secret as string;
+        resolvedClientSecrets[serviceId] = secret;
       }
 
       // Resolve all user passwords
       const resolvedUserPasswords: Record<string, string> = {};
       for (const [username, password] of Object.entries(passwords)) {
-        resolvedUserPasswords[username] = password as string;
+        resolvedUserPasswords[username] = password;
       }
 
       // Use pure functions from realm-import.ts

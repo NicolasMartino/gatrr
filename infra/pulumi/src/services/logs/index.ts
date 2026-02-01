@@ -47,7 +47,7 @@ const PROMTAIL_IMAGE = `grafana/promtail:${PROMTAIL_VERSION}`;
 
 /** Ports */
 const GRAFANA_PORT = 3000;
-const LOKI_PORT = 3100;
+const LOKI_PORT = "3100";
 
 /** Required realm roles to access this service (admin only) */
 const REQUIRED_REALM_ROLES = ["admin"];

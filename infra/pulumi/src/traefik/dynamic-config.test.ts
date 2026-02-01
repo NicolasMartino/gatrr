@@ -249,9 +249,10 @@ describe("rate limiting middleware", () => {
 
     const middlewares = config.http.routers["core-portal"].middlewares;
     expect(middlewares).toBeDefined();
-    expect(middlewares![0]).toBe("rate-limit");
-    expect(middlewares![1]).toBe("in-flight-req");
-    expect(middlewares![2]).toBe("security-headers");
+    if (!middlewares) throw new Error("Expected middlewares");
+    expect(middlewares[0]).toBe("rate-limit");
+    expect(middlewares[1]).toBe("in-flight-req");
+    expect(middlewares[2]).toBe("security-headers");
   });
 
   it("applies rate limiting to service routes in prod", () => {

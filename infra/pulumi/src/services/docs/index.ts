@@ -37,8 +37,6 @@ const PROJECT_VERSION = getPortalVersion(repoRoot);
 
 export interface DocsServiceInputs {
   context: ServiceContext;
-  /** Not used - docs is a public service (ignored if provided) */
-  clientSecret?: unknown;
 }
 
 /**

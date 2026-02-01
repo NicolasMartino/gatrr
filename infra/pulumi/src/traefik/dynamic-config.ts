@@ -400,7 +400,7 @@ function buildServiceRoute(
     service: {
       loadBalancer: {
         servers: [
-          { url: `http://${route.upstream.containerName}:${route.upstream.port}` },
+          { url: `http://${route.upstream.containerName}:${String(route.upstream.port)}` },
         ],
       },
     },

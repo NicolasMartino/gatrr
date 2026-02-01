@@ -131,7 +131,7 @@ function validateUnifiedUserInput(
   index: number
 ): { user: UnifiedUserInput; errors: ValidationError[] } | { user: null; errors: ValidationError[] } {
   const errors: ValidationError[] = [];
-  const path = `users[${index}]`;
+  const path = `users[${String(index)}]`;
 
   if (!isPlainObject(value)) {
     errors.push({ path, message: "must be an object" });
@@ -183,12 +183,12 @@ function validateUnifiedUserInput(
       }
     } else if (Array.isArray(value.roles)) {
       for (let i = 0; i < value.roles.length; i++) {
-        const role = value.roles[i];
+        const role: unknown = value.roles[i];
         if (typeof role !== "string") {
-          errors.push({ path: `${path}.roles[${i}]`, message: "must be a string" });
+          errors.push({ path: `${path}.roles[${String(i)}]`, message: "must be a string" });
         } else if (!isValidRole(role)) {
           errors.push({
-            path: `${path}.roles[${i}]`,
+            path: `${path}.roles[${String(i)}]`,
             message: `"${role}" is not a valid role (must be lowercase slug)`,
           });
         }
@@ -254,11 +254,11 @@ export function parseUnifiedSecretsConfig(value: unknown): UnifiedSecretsInput {
     // Check for duplicate usernames
     const usernames = new Set<string>();
     for (let i = 0; i < value.users.length; i++) {
-      const user = value.users[i];
+      const user: unknown = value.users[i];
       if (isPlainObject(user) && typeof user.username === "string") {
         if (usernames.has(user.username)) {
           errors.push({
-            path: `users[${i}].username`,
+            path: `users[${String(i)}].username`,
             message: `duplicate username "${user.username}"`,
           });
         }
@@ -277,7 +277,11 @@ export function parseUnifiedSecretsConfig(value: unknown): UnifiedSecretsInput {
     keycloakAdminPassword: value.keycloakAdminPassword as string,
     users: (value.users as unknown[]).map((u, i) => {
       const result = validateUnifiedUserInput(u, i);
-      return result.user!;
+      // We've already validated above, so user is guaranteed to exist
+      if (!result.user) {
+        throw new Error(`Unexpected validation failure for user at index ${String(i)}`);
+      }
+      return result.user;
     }),
   };
 }
@@ -321,13 +325,14 @@ export function parseUnifiedUsersYaml(yamlString: string): readonly UnifiedUserI
   // Check for duplicate usernames
   const usernames = new Set<string>();
   for (let i = 0; i < users.length; i++) {
-    if (usernames.has(users[i].username)) {
+    const user = users[i];
+    if (usernames.has(user.username)) {
       errors.push({
-        path: `users[${i}].username`,
-        message: `duplicate username "${users[i].username}"`,
+        path: `users[${String(i)}].username`,
+        message: `duplicate username "${user.username}"`,
       });
     }
-    usernames.add(users[i].username);
+    usernames.add(user.username);
   }
 
   if (errors.length > 0) {

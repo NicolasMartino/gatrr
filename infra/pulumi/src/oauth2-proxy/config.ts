@@ -108,7 +108,7 @@ export function buildOAuth2ProxyEnvs(inputs: OAuth2ProxyEnvInputs): string[] {
       : "OAUTH2_PROXY_COOKIE_SECURE=false",
 
     // Upstream configuration
-    `OAUTH2_PROXY_UPSTREAMS=http://${upstreamContainerName}:${upstreamPort}/`,
+    `OAUTH2_PROXY_UPSTREAMS=http://${upstreamContainerName}:${String(upstreamPort)}/`,
 
     // Redirect configuration
     `OAUTH2_PROXY_REDIRECT_URL=${serviceUrl}/oauth2/callback`,

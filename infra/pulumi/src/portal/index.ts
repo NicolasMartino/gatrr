@@ -76,8 +76,8 @@ export function createPortal(inputs: PortalInputs): PortalResources {
     const descriptorSize = Buffer.byteLength(descriptorJsonMinified, "utf-8");
     if (descriptorSize > DESCRIPTOR_JSON_MAX_SIZE) {
       throw new Error(
-        `Descriptor size (${descriptorSize} bytes) exceeds maximum for JSON injection ` +
-          `(${DESCRIPTOR_JSON_MAX_SIZE} bytes). Use descriptorInjection: "file" instead.`
+        `Descriptor size (${String(descriptorSize)} bytes) exceeds maximum for JSON injection ` +
+          `(${String(DESCRIPTOR_JSON_MAX_SIZE)} bytes). Use descriptorInjection: "file" instead.`
       );
     }
   }

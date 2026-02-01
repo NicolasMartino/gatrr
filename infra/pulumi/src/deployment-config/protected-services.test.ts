@@ -8,7 +8,6 @@ import {
   getProtectedServiceIdsFromConfig,
   buildOAuth2ProxyAllowedGroups,
   isProtectedService,
-  ProtectedServiceInfo,
 } from "./protected-services";
 import { ResolvedDeploymentConfig, ResolvedServiceConfig } from "./types";
 

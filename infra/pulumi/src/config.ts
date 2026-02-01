@@ -25,8 +25,9 @@ export function getPortalVersion(repoRoot: string): string {
       return match[1];
     }
     throw new Error("Version field not found in Cargo.toml");
-  } catch (error) {
-    console.warn(`Warning: Could not read portal version from ${cargoPath}: ${error}`);
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.warn(`Warning: Could not read portal version from ${cargoPath}: ${errorMessage}`);
     return "0.0.0";
   }
 }

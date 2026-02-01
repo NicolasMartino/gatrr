@@ -65,8 +65,8 @@ function getDirtyNonceFilePath(): string {
 function readDirtyNonce(filePath: string): string | undefined {
   try {
     const raw = fs.readFileSync(filePath, { encoding: "utf-8" });
-    const parsed = JSON.parse(raw) as { nonce?: unknown };
-    return typeof parsed.nonce === "string" && parsed.nonce.length > 0
+    const parsed = JSON.parse(raw) as { nonce?: string };
+    return parsed.nonce && parsed.nonce.length > 0
       ? parsed.nonce
       : undefined;
   } catch {

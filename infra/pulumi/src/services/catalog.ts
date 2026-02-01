@@ -86,7 +86,10 @@ export function getAvailableServiceIds(): string[] {
  * @returns Factory function or undefined if not in catalog
  */
 export function getServiceFactory(id: string): ServiceFactory | undefined {
-  return SERVICE_CATALOG[id]?.factory;
+  if (id in SERVICE_CATALOG) {
+    return SERVICE_CATALOG[id].factory;
+  }
+  return undefined;
 }
 
 /**

@@ -11,7 +11,7 @@
  * - Schema validation: JSON Schema is the single source of truth
  */
 
-import Ajv2020 from "ajv/dist/2020";
+import Ajv2020, { AnySchema } from "ajv/dist/2020";
 import * as fs from "fs";
 import * as path from "path";
 import { DeploymentConfig, buildUrl } from "../config";
@@ -60,7 +60,7 @@ function getSchemaValidator(): ReturnType<InstanceType<typeof Ajv2020>["compile"
   }
 
   const schemaContent = fs.readFileSync(SCHEMA_PATH, "utf-8");
-  const schema = JSON.parse(schemaContent);
+  const schema = JSON.parse(schemaContent) as AnySchema;
 
   const ajv = new Ajv2020({
     strict: false, // Schema uses "not" patterns that strict mode flags
@@ -88,7 +88,7 @@ export function validateDescriptorSchema(descriptor: PortalDescriptor): void {
     const errorMessages = validate.errors
       .map((err) => {
         const path = err.instancePath || "(root)";
-        return `  - ${path}: ${err.message}`;
+        return `  - ${path}: ${err.message ?? "unknown error"}`;
       })
       .join("\n");
     throw new Error(`Descriptor schema validation failed:\n${errorMessages}`);
