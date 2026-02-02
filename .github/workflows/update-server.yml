@@ -1,0 +1,66 @@
+# Update Server Scripts
+#
+# Manually triggered workflow to update deployment scripts on the server.
+# Run this after changing bootstrap.sh or deploy-remote.sh.
+
+name: Update Server
+
+on:
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: 'Commit SHA whose scripts/ to apply on server (leave empty for current commit)'
+        required: false
+        default: ''
+
+env:
+  PULUMI_CONFIG_PASSPHRASE: ${{ secrets.PULUMI_CONFIG_PASSPHRASE }}
+
+jobs:
+  update:
+    name: Update Server Scripts
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: pulumi/auth-actions@v1
+        with:
+          organization: ${{ vars.PULUMI_ORG }}
+          requested-token-type: urn:pulumi:token-type:access_token:personal
+          scope: user:${{ vars.PULUMI_USER }}
+
+      - name: Get SSH credentials from ESC
+        run: |
+          set +x
+          command -v jq >/dev/null || { echo "Error: jq is required"; exit 1; }
+          curl -fsSL https://get.pulumi.com | sh
+          export PATH="$HOME/.pulumi/bin:$PATH"
+
+          pulumi env open ${{ vars.PULUMI_ORG }}/gatrr/prod --format json > /tmp/esc.json
+
+          DEPLOY_HOST=$(jq -r '.ssh.deployHost' /tmp/esc.json)
+          PRIVATE_KEY=$(jq -r '.ssh.privateKey' /tmp/esc.json)
+          KNOWN_HOSTS=$(jq -r '.ssh.knownHosts' /tmp/esc.json)
+
+          echo "::add-mask::$PRIVATE_KEY"
+          echo "::add-mask::$DEPLOY_HOST"
+
+          mkdir -p ~/.ssh
+          echo "$PRIVATE_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          echo "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+          echo "DEPLOY_HOST=$DEPLOY_HOST" >> $GITHUB_ENV
+          rm -f /tmp/esc.json
+
+      - name: Update server scripts
+        run: |
+          sha="${{ inputs.sha || github.sha }}"
+          echo "Updating server scripts to SHA: ${sha}"
+          ssh ${{ env.DEPLOY_HOST }} "update prod ${sha}"
+
+      - name: Cleanup SSH keys
+        if: always()
+        run: rm -f ~/.ssh/id_ed25519

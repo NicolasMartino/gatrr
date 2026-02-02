@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" id="html-root">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -106,34 +106,34 @@
         }
     </style>
 </head>
-<body>
-    <div class="container">
-        <div class="logo">
+<body id="body">
+    <div id="container" class="container">
+        <div id="logo" class="logo">
             {% match logo_url %}
             {% when Some with (url) %}
-            <img src="{{ url }}" alt="Logo">
+            <img id="logo-image" src="{{ url }}" alt="Logo">
             {% when None %}
-            🔐
+            <span id="logo-fallback">🔐</span>
             {% endmatch %}
         </div>
 
-        <h1>Service Portal</h1>
-        <p>Securely access your protected services with single sign-on authentication.</p>
+        <h1 id="title">Service Portal</h1>
+        <p id="subtitle">Securely access your protected services with single sign-on authentication.</p>
 
-        <a href="/auth/login" class="btn">Sign In</a>
+        <a id="signin-button" href="/auth/login" class="btn">Sign In</a>
 
-        <div class="features">
-            <div class="feature">
-                <span class="feature-icon">🔒</span>
-                <span class="feature-text">Secure OAuth2/OIDC authentication</span>
+        <div id="features" class="features">
+            <div id="feature-1" class="feature">
+                <span id="feature-1-icon" class="feature-icon">🔒</span>
+                <span id="feature-1-text" class="feature-text">Secure OAuth2/OIDC authentication</span>
             </div>
-            <div class="feature">
-                <span class="feature-icon">🎯</span>
-                <span class="feature-text">Single sign-on across all services</span>
+            <div id="feature-2" class="feature">
+                <span id="feature-2-icon" class="feature-icon">🎯</span>
+                <span id="feature-2-text" class="feature-text">Single sign-on across all services</span>
             </div>
-            <div class="feature">
-                <span class="feature-icon">⚡</span>
-                <span class="feature-text">Fast and secure access</span>
+            <div id="feature-3" class="feature">
+                <span id="feature-3-icon" class="feature-icon">⚡</span>
+                <span id="feature-3-text" class="feature-text">Fast and secure access</span>
             </div>
         </div>
     </div>

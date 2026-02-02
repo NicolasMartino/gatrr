@@ -7,12 +7,13 @@
  * - URL + authType mapping correctness
  */
 
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeEach, afterAll } from "vitest";
 import {
   generateDescriptor,
   sortPortalServices,
   serializeDescriptor,
   PortalDescriptor,
+  getDeploymentInfoFromEnv,
 } from "./index";
 import { DeploymentConfig } from "../config";
 import { PortalService } from "../types";
@@ -447,5 +448,133 @@ describe("integration: full descriptor generation", () => {
     expect(docsService.protected).toBe(false);
     expect(docsService.authType).toBe("none");
     expect(docsService.requiredRealmRoles).toBeUndefined();
+  });
+});
+
+describe("deployment info", () => {
+  it("omits deployment when no options provided", () => {
+    const descriptor = generateDescriptor(testConfig, []);
+
+    expect(descriptor.deployment).toBeUndefined();
+  });
+
+  it("omits deployment when empty options provided", () => {
+    const descriptor = generateDescriptor(testConfig, [], {});
+
+    expect(descriptor.deployment).toBeUndefined();
+  });
+
+  it("omits deployment when deployment options are empty", () => {
+    const descriptor = generateDescriptor(testConfig, [], { deployment: {} });
+
+    expect(descriptor.deployment).toBeUndefined();
+  });
+
+  it("includes deployment info when all fields provided", () => {
+    const descriptor = generateDescriptor(testConfig, [], {
+      deployment: {
+        commitSha: "a1b2c3d4e5f6789012345678901234567890abcd",
+        commitAt: "2026-02-02T15:30:00Z",
+        deployedAt: "2026-02-02T16:00:00Z",
+      },
+    });
+
+    expect(descriptor.deployment).toEqual({
+      commitSha: "a1b2c3d4e5f6789012345678901234567890abcd",
+      commitAt: "2026-02-02T15:30:00Z",
+      deployedAt: "2026-02-02T16:00:00Z",
+    });
+  });
+
+  it("includes only provided deployment fields", () => {
+    const descriptor = generateDescriptor(testConfig, [], {
+      deployment: {
+        commitSha: "a1b2c3d4e5f6789012345678901234567890abcd",
+      },
+    });
+
+    expect(descriptor.deployment).toEqual({
+      commitSha: "a1b2c3d4e5f6789012345678901234567890abcd",
+    });
+    expect(descriptor.deployment?.commitAt).toBeUndefined();
+    expect(descriptor.deployment?.deployedAt).toBeUndefined();
+  });
+
+  it("validates deployment against schema", () => {
+    // Invalid commit SHA (too short)
+    expect(() =>
+      generateDescriptor(testConfig, [], {
+        deployment: {
+          commitSha: "d1a4f7c",
+        },
+      })
+    ).toThrow("schema validation failed");
+  });
+
+  it("validates deployment date format against schema", () => {
+    // Invalid date format (not ISO 8601 UTC)
+    expect(() =>
+      generateDescriptor(testConfig, [], {
+        deployment: {
+          deployedAt: "2026-02-02",
+        },
+      })
+    ).toThrow("schema validation failed");
+  });
+});
+
+describe("getDeploymentInfoFromEnv", () => {
+  const originalEnv = process.env;
+
+  beforeEach(() => {
+    // Reset env for each test
+    process.env = { ...originalEnv };
+    delete process.env.GATRR_COMMIT_SHA;
+    delete process.env.GATRR_COMMIT_AT;
+    delete process.env.GATRR_DEPLOYED_AT;
+  });
+
+  afterAll(() => {
+    process.env = originalEnv;
+  });
+
+  it("returns undefined when no env vars set", () => {
+    const result = getDeploymentInfoFromEnv();
+
+    expect(result).toBeUndefined();
+  });
+
+  it("returns deployment info when all env vars set", () => {
+    process.env.GATRR_COMMIT_SHA = "a1b2c3d4e5f6789012345678901234567890abcd";
+    process.env.GATRR_COMMIT_AT = "2026-02-02T15:30:00Z";
+    process.env.GATRR_DEPLOYED_AT = "2026-02-02T16:00:00Z";
+
+    const result = getDeploymentInfoFromEnv();
+
+    expect(result).toEqual({
+      commitSha: "a1b2c3d4e5f6789012345678901234567890abcd",
+      commitAt: "2026-02-02T15:30:00Z",
+      deployedAt: "2026-02-02T16:00:00Z",
+    });
+  });
+
+  it("returns partial deployment info when some env vars set", () => {
+    process.env.GATRR_COMMIT_SHA = "a1b2c3d4e5f6789012345678901234567890abcd";
+
+    const result = getDeploymentInfoFromEnv();
+
+    expect(result).toEqual({
+      commitSha: "a1b2c3d4e5f6789012345678901234567890abcd",
+    });
+  });
+
+  it("returns only deployedAt when only that env var is set", () => {
+    process.env.GATRR_DEPLOYED_AT = "2026-02-02T16:00:00Z";
+
+    const result = getDeploymentInfoFromEnv();
+
+    expect(result).toEqual({
+      deployedAt: "2026-02-02T16:00:00Z",
+    });
   });
 });

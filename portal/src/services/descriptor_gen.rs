@@ -38,6 +38,21 @@ pub struct KeycloakConfig {
     pub realm: String,
 }
 
+/// Deployment metadata for tracking what/when was deployed
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct DeploymentInfo {
+    /// Git commit SHA that was deployed (40-character hex)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub commit_sha: Option<String>,
+    /// When the commit was made (git committer date, ISO 8601 UTC)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub commit_at: Option<String>,
+    /// When the deployment happened (ISO 8601 UTC)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub deployed_at: Option<String>,
+}
+
 /// A service entry in the descriptor
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -82,6 +97,9 @@ pub struct Descriptor {
     pub environment: String,
     /// Base domain (e.g., "localhost", "example.com")
     pub base_domain: String,
+    /// Deployment metadata (commit, timestamps) - optional
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub deployment: Option<DeploymentInfo>,
     /// Portal configuration
     pub portal: PortalConfig,
     /// Keycloak configuration

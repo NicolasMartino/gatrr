@@ -12,7 +12,8 @@ COPY portal/templates ./templates
 RUN npm ci && npm run build:css
 
 # Stage 2: Build Rust binary
-FROM rust:1.86 AS builder
+# Use bookworm variant to match runtime GLIBC version (2.36)
+FROM rust:1.92-bookworm AS builder
 
 WORKDIR /app
 

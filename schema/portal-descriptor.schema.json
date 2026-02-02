@@ -26,6 +26,10 @@
       "pattern": "^[^\\s]+$",
       "description": "Base domain (e.g., 'localhost', 'example.com')"
     },
+    "deployment": {
+      "$ref": "#/$defs/deploymentInfo",
+      "description": "Deployment metadata (commit, timestamps)"
+    },
     "portal": {
       "$ref": "#/$defs/portalConfig"
     },
@@ -51,6 +55,35 @@
       "type": "string",
       "pattern": "^https?://[^\\s]+$",
       "description": "Absolute URL with http:// or https:// scheme"
+    },
+    "isoDateTime": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$",
+      "description": "ISO 8601 UTC datetime (e.g., '2025-02-02T15:30:00Z')"
+    },
+    "gitSha": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$",
+      "description": "Full 40-character git commit SHA"
+    },
+    "deploymentInfo": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "commitSha": {
+          "$ref": "#/$defs/gitSha",
+          "description": "Git commit SHA that was deployed"
+        },
+        "commitAt": {
+          "$ref": "#/$defs/isoDateTime",
+          "description": "When the commit was made (git committer date)"
+        },
+        "deployedAt": {
+          "$ref": "#/$defs/isoDateTime",
+          "description": "When the deployment happened"
+        }
+      },
+      "description": "Deployment metadata for tracking what/when was deployed"
     },
     "portalConfig": {
       "type": "object",

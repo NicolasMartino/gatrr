@@ -25,7 +25,7 @@ import * as pulumi from "@pulumi/pulumi";
 import * as path from "path";
 import { getConfig, buildUrl } from "./config";
 import { ServiceContext, ServiceModuleResult, RouteRequest, shortName } from "./types";
-import { generateDescriptor } from "./descriptor/index";
+import { generateDescriptor, getDeploymentInfoFromEnv } from "./descriptor/index";
 import { createNetwork } from "./network";
 import { createTraefik } from "./traefik";
 import { createKeycloak, buildClientRequest } from "./keycloak";
@@ -271,8 +271,13 @@ const traefik = createTraefik({
 // Collect portal services from service modules
 const portalServices = serviceModules.map((m) => m.portal);
 
+// Get deployment metadata from environment variables (set by CI/CD)
+const deploymentInfo = getDeploymentInfoFromEnv();
+
 // Generate portal descriptor from service module outputs
-const descriptor = generateDescriptor(config, portalServices);
+const descriptor = generateDescriptor(config, portalServices, {
+  deployment: deploymentInfo,
+});
 
 // Build portal Docker image
 const portalImage = buildPortalImage({

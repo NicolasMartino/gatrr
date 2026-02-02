@@ -102,6 +102,22 @@ export interface KeycloakConfig {
 `;
 }
 
+function generateDeploymentInfo(): string {
+  return `/**
+ * Deployment metadata for tracking what/when was deployed
+ */
+export interface DeploymentInfo {
+  /** Git commit SHA that was deployed (40-character hex) */
+  commitSha?: string;
+  /** When the commit was made (git committer date, ISO 8601 UTC) */
+  commitAt?: string;
+  /** When the deployment happened (ISO 8601 UTC) */
+  deployedAt?: string;
+}
+
+`;
+}
+
 function generateService(): string {
   return `/**
  * A service entry in the descriptor
@@ -209,6 +225,8 @@ export interface PortalDescriptor {
   environment: string;
   /** Base domain (e.g., 'localhost', 'example.com') */
   baseDomain: string;
+  /** Deployment metadata (commit, timestamps) - optional */
+  deployment?: DeploymentInfo;
   /** Portal configuration */
   portal: PortalConfig;
   /** Keycloak configuration */
@@ -308,6 +326,7 @@ function main(): void {
     generateAuthType(schema),
     generatePortalConfig(),
     generateKeycloakConfig(),
+    generateDeploymentInfo(),
     generateService(),
     generateDiscriminatedUnions(),
     generatePortalDescriptor(),

@@ -151,6 +151,7 @@ jobs:
       - name: Get deploy secrets from ESC
         run: |
           set +x
+          command -v jq >/dev/null || { echo "Error: jq is required"; exit 1; }
           curl -fsSL https://get.pulumi.com | sh
           export PATH="$HOME/.pulumi/bin:$PATH"
 

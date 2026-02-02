@@ -13,6 +13,48 @@ on:
 
 jobs:
   # ==========================================================================
+  # Generated Files Verification
+  # ==========================================================================
+  generated-files:
+    name: Verify Generated Files
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: infra/pulumi/package-lock.json
+
+      - name: Setup Rust
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: "1.92"
+
+      - name: Install Node dependencies
+        run: npm ci
+        working-directory: infra/pulumi
+
+      - name: Regenerate TypeScript types
+        run: npm run generate:types
+        working-directory: infra/pulumi
+
+      - name: Regenerate Rust types
+        run: cargo run --bin generate-types
+        working-directory: portal
+
+      - name: Verify no changes to generated files
+        run: |
+          git diff --exit-code infra/pulumi/src/descriptor/descriptor.gen.ts portal/src/services/descriptor_gen.rs || {
+            echo "::error::Generated files are out of sync with their generators."
+            echo "Run 'npm run generate:types' in infra/pulumi and 'cargo run --bin generate-types' in portal, then commit the changes."
+            exit 1
+          }
+
+  # ==========================================================================
   # Rust (Portal)
   # ==========================================================================
   rust:
@@ -28,6 +70,7 @@ jobs:
       - name: Setup Rust
         uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
+          toolchain: "1.92"
           components: clippy
 
       - name: Build

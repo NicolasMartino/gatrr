@@ -21,9 +21,25 @@ export type {
   PortalDescriptor,
   PortalConfig,
   KeycloakConfig,
+  DeploymentInfo,
   Service,
   AuthType,
 } from "./descriptor.gen";
+
+/**
+ * Options for generating the portal descriptor
+ */
+export interface GenerateDescriptorOptions {
+  /** Deployment metadata (commit, timestamps) - optional */
+  deployment?: {
+    /** Git commit SHA that was deployed (40-character hex) */
+    commitSha?: string;
+    /** When the commit was made (git committer date, ISO 8601 UTC) */
+    commitAt?: string;
+    /** When the deployment happened (ISO 8601 UTC) */
+    deployedAt?: string;
+  };
+}
 export {
   isValidSlug,
   isValidHttpUrl,
@@ -33,7 +49,7 @@ export {
   isPortalAuthService,
 } from "./descriptor.gen";
 
-import type { PortalDescriptor, Service } from "./descriptor.gen";
+import type { PortalDescriptor, Service, DeploymentInfo } from "./descriptor.gen";
 
 // Legacy alias for backwards compatibility
 export type PortalService = Service;
@@ -150,7 +166,8 @@ export function sortPortalServices(services: PortalService[]): PortalService[] {
  */
 export function generateDescriptor(
   config: DeploymentConfig,
-  services: PortalService[]
+  services: PortalService[],
+  options?: GenerateDescriptorOptions
 ): PortalDescriptor {
   const portalUrl = buildUrl(config, "portal");
   const keycloakUrl = buildUrl(config, "keycloak");
@@ -158,11 +175,26 @@ export function generateDescriptor(
   // Sort services for stable ordering
   const sortedServices = sortPortalServices(services);
 
+  // Build deployment info if any fields are provided
+  let deployment: DeploymentInfo | undefined;
+  if (options?.deployment) {
+    const { commitSha, commitAt, deployedAt } = options.deployment;
+    // Only include deployment if at least one field is set
+    if (commitSha || commitAt || deployedAt) {
+      deployment = {
+        ...(commitSha && { commitSha }),
+        ...(commitAt && { commitAt }),
+        ...(deployedAt && { deployedAt }),
+      };
+    }
+  }
+
   const descriptor: PortalDescriptor = {
     version: "1",
     deploymentId: config.deploymentId,
     environment: config.environment,
     baseDomain: config.baseDomain,
+    ...(deployment && { deployment }),
     portal: {
       publicUrl: portalUrl,
     },
@@ -178,6 +210,33 @@ export function generateDescriptor(
   validateDescriptorSchema(descriptor);
 
   return descriptor;
+}
+
+/**
+ * Get deployment info from environment variables
+ *
+ * Reads from:
+ * - GATRR_COMMIT_SHA: Git commit SHA (40-character hex)
+ * - GATRR_COMMIT_AT: When the commit was made (ISO 8601 UTC)
+ * - GATRR_DEPLOYED_AT: When the deployment happened (ISO 8601 UTC)
+ *
+ * Returns undefined if no deployment info is set.
+ */
+export function getDeploymentInfoFromEnv(): GenerateDescriptorOptions["deployment"] | undefined {
+  const commitSha = process.env.GATRR_COMMIT_SHA;
+  const commitAt = process.env.GATRR_COMMIT_AT;
+  const deployedAt = process.env.GATRR_DEPLOYED_AT;
+
+  // Return undefined if no deployment info is set
+  if (!commitSha && !commitAt && !deployedAt) {
+    return undefined;
+  }
+
+  return {
+    ...(commitSha && { commitSha }),
+    ...(commitAt && { commitAt }),
+    ...(deployedAt && { deployedAt }),
+  };
 }
 
 /**
